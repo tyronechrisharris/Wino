@@ -8,7 +8,7 @@ const HEADERS = [
     "Tyrone perceived score", "Robot sommelier"
 ];
 
-createApp({
+const app = createApp({
     data() {
         return {
             user: null,
@@ -23,6 +23,14 @@ createApp({
             searchQuery: '',
             selectedWine: null,
             scanner: null,
+            // Setup State
+            taster1: '',
+            taster2: '',
+            newTaster1: '',
+            newTaster2: '',
+            spreadsheetsList: [],
+            setupStep: 'choice', // choice, create, list
+            isUpgrading: false,
             formData: {
                 name: '',
                 year: '',
@@ -356,8 +364,8 @@ createApp({
 
                  this.user = await response.json();
 
-                 // After getting user, try to find/create spreadsheet
-                 this.findOrCreateSpreadsheet();
+                 // After getting user, check login state
+                 this.checkLoginState();
 
              } catch (error) {
                  console.error(error);
@@ -367,7 +375,7 @@ createApp({
                  this.loading = false;
              }
         },
-        async findOrCreateSpreadsheet() {
+        async checkLoginState() {
             this.loading = true;
             this.loadingMessage = 'Locating your wine cellar...';
 
@@ -375,40 +383,168 @@ createApp({
             let id = localStorage.getItem('wine_spreadsheet_id');
             if (id) {
                 this.spreadsheetId = id;
+                await this.fetchSettings(); // Get taster names
                 await this.fetchWines();
-                return;
-            }
-
-            try {
-                // Search Drive
-                const query = `name = '${CONFIG.SPREADSHEET_NAME}' and mimeType = 'application/vnd.google-apps.spreadsheet' and trashed = false`;
-                const response = await fetch(`https://www.googleapis.com/drive/v3/files?q=${encodeURIComponent(query)}`, {
-                    headers: { 'Authorization': `Bearer ${this.accessToken}` }
-                });
-
-                if (!response.ok) throw new Error('Drive API error');
-
-                const data = await response.json();
-
-                if (data.files && data.files.length > 0) {
-                    this.spreadsheetId = data.files[0].id;
-                    localStorage.setItem('wine_spreadsheet_id', this.spreadsheetId);
-                    await this.fetchWines();
-                } else {
-                    // Create new
-                    await this.createSpreadsheet();
-                }
-            } catch (error) {
-                console.error("Error finding spreadsheet:", error);
-                this.error = "Could not access Google Drive. Make sure the API is enabled.";
+            } else {
+                // No ID found, go to setup
+                this.view = 'setup';
+                this.setupStep = 'choice';
                 this.loading = false;
             }
         },
 
-        async createSpreadsheet() {
-            this.loadingMessage = 'Creating new wine cellar...';
+        async fetchSettings() {
             try {
-                const response = await fetch('https://sheets.googleapis.com/v4/spreadsheets', {
+                // Try to read Settings!A1:B1
+                const response = await fetch(`https://sheets.googleapis.com/v4/spreadsheets/${this.spreadsheetId}/values/Settings!A1:B1`, {
+                    headers: { 'Authorization': `Bearer ${this.accessToken}` }
+                });
+
+                if (response.ok) {
+                    const data = await response.json();
+                    if (data.values && data.values[0]) {
+                        this.taster1 = data.values[0][0] || 'Taster 1';
+                        this.taster2 = data.values[0][1] || 'Taster 2';
+                        return true;
+                    }
+                }
+
+                // Settings sheet might not exist or be empty
+                console.warn("Settings sheet not found or empty.");
+                this.taster1 = 'Taster 1';
+                this.taster2 = 'Taster 2';
+                return false;
+
+            } catch (e) {
+                console.error("Error fetching settings:", e);
+                return false;
+            }
+        },
+
+        async fetchSpreadsheets() {
+            this.loading = true;
+            this.loadingMessage = 'Searching for spreadsheets...';
+            try {
+                const query = "mimeType = 'application/vnd.google-apps.spreadsheet' and trashed = false";
+                const response = await fetch(`https://www.googleapis.com/drive/v3/files?q=${encodeURIComponent(query)}&orderBy=modifiedTime desc`, {
+                    headers: { 'Authorization': `Bearer ${this.accessToken}` }
+                });
+
+                if (response.ok) {
+                    const data = await response.json();
+                    this.spreadsheetsList = data.files || [];
+                    this.setupStep = 'list';
+                } else {
+                    this.error = "Failed to list spreadsheets.";
+                }
+            } catch (e) {
+                console.error("Error listing spreadsheets:", e);
+                this.error = "Failed to list spreadsheets.";
+            } finally {
+                this.loading = false;
+            }
+        },
+
+        async selectSpreadsheet(sheet) {
+            this.spreadsheetId = sheet.id;
+            localStorage.setItem('wine_spreadsheet_id', this.spreadsheetId);
+
+            const settingsFound = await this.fetchSettings(); // Returns true/false (promise)
+
+            if (settingsFound) {
+                await this.fetchWines();
+                this.view = 'dashboard';
+            } else {
+                // Prompt to set up names for existing sheet
+                this.isUpgrading = true;
+                this.setupStep = 'create';
+            }
+        },
+
+        async upgradeCellar() {
+             this.loading = true;
+             this.loadingMessage = 'Upgrading your wine cellar...';
+             try {
+                // 1. Add 'Settings' Sheet (might fail if exists but empty, so handle error)
+                try {
+                    await fetch(`https://sheets.googleapis.com/v4/spreadsheets/${this.spreadsheetId}:batchUpdate`, {
+                        method: 'POST',
+                        headers: {
+                            'Authorization': `Bearer ${this.accessToken}`,
+                            'Content-Type': 'application/json'
+                        },
+                        body: JSON.stringify({
+                            requests: [
+                                { addSheet: { properties: { title: 'Settings' } } }
+                            ]
+                        })
+                    });
+                } catch (e) {
+                    console.log("Settings sheet might already exist, continuing...");
+                }
+
+                // 2. Write Taster Names to Settings
+                const taster1 = this.newTaster1 || 'Taster 1';
+                const taster2 = this.newTaster2 || 'Taster 2';
+
+                await fetch(`https://sheets.googleapis.com/v4/spreadsheets/${this.spreadsheetId}/values/Settings!A1:B1?valueInputOption=USER_ENTERED`, {
+                    method: 'PUT',
+                    headers: {
+                        'Authorization': `Bearer ${this.accessToken}`,
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({
+                        values: [[taster1, taster2]]
+                    })
+                });
+
+                // 3. Construct Headers with Names (Optional for upgrade, but good to sync)
+                // We might overwrite existing data headers if we are not careful.
+                // But the requirement says "Make the spreadsheet for the user".
+                // If upgrading, we assume it's a compatible sheet or the user wants to enforce this structure.
+                // Let's be safe and ONLY update the headers if we are sure, or just skip it for upgrade
+                // and rely on UI.
+                // But `fetchSettings` relies on the sheet having the names.
+                // Let's update the headers to match the new names.
+
+                const customHeaders = [...HEADERS];
+                customHeaders[13] = `${taster1} tasty notes`;
+                customHeaders[14] = `${taster1} score`;
+                customHeaders[15] = `${taster2} tasting notes`;
+                customHeaders[16] = `${taster2} score`;
+
+                await fetch(`https://sheets.googleapis.com/v4/spreadsheets/${this.spreadsheetId}/values/Sheet1!A1:R1?valueInputOption=USER_ENTERED`, {
+                    method: 'PUT',
+                    headers: {
+                        'Authorization': `Bearer ${this.accessToken}`,
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({
+                        values: [customHeaders]
+                    })
+                });
+
+                // Finalize
+                this.taster1 = taster1;
+                this.taster2 = taster2;
+                await this.fetchWines();
+                this.view = 'dashboard';
+                this.loading = false;
+                this.isUpgrading = false;
+
+             } catch (error) {
+                console.error("Error upgrading spreadsheet:", error);
+                this.error = "Could not upgrade spreadsheet. " + error.message;
+                this.loading = false;
+             }
+        },
+
+        async createCellar() {
+            this.loading = true;
+            this.loadingMessage = 'Creating your wine cellar...';
+            try {
+                // 1. Create Spreadsheet
+                const createResponse = await fetch('https://sheets.googleapis.com/v4/spreadsheets', {
                     method: 'POST',
                     headers: {
                         'Authorization': `Bearer ${this.accessToken}`,
@@ -419,30 +555,72 @@ createApp({
                     })
                 });
 
-                if (!response.ok) throw new Error('Sheets Create API error');
+                if (!createResponse.ok) throw new Error('Sheets Create API error');
 
-                const data = await response.json();
+                const data = await createResponse.json();
                 this.spreadsheetId = data.spreadsheetId;
                 localStorage.setItem('wine_spreadsheet_id', this.spreadsheetId);
 
-                // Add Headers
-                await fetch(`https://sheets.googleapis.com/v4/spreadsheets/${this.spreadsheetId}/values/A1:R1?valueInputOption=USER_ENTERED`, {
+                // 2. Add 'Settings' Sheet
+                await fetch(`https://sheets.googleapis.com/v4/spreadsheets/${this.spreadsheetId}:batchUpdate`, {
+                    method: 'POST',
+                    headers: {
+                        'Authorization': `Bearer ${this.accessToken}`,
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({
+                        requests: [
+                            { addSheet: { properties: { title: 'Settings' } } }
+                        ]
+                    })
+                });
+
+                // 3. Write Taster Names to Settings
+                const taster1 = this.newTaster1 || 'Taster 1';
+                const taster2 = this.newTaster2 || 'Taster 2';
+
+                await fetch(`https://sheets.googleapis.com/v4/spreadsheets/${this.spreadsheetId}/values/Settings!A1:B1?valueInputOption=USER_ENTERED`, {
                     method: 'PUT',
                     headers: {
                         'Authorization': `Bearer ${this.accessToken}`,
                         'Content-Type': 'application/json'
                     },
                     body: JSON.stringify({
-                        values: [HEADERS]
+                        values: [[taster1, taster2]]
                     })
                 });
 
-                this.wines = []; // New sheet is empty
+                // 4. Construct Headers with Names
+                const customHeaders = [...HEADERS];
+                // Update specific columns (0-indexed 13, 14, 15, 16)
+                // "Lindy tasty notes", "lindy delusional score", "Tyrone tasting notes", "Tyrone perceived score"
+                customHeaders[13] = `${taster1} tasty notes`;
+                customHeaders[14] = `${taster1} score`;
+                customHeaders[15] = `${taster2} tasting notes`;
+                customHeaders[16] = `${taster2} score`;
+
+                // 5. Write Headers to Sheet1
+                await fetch(`https://sheets.googleapis.com/v4/spreadsheets/${this.spreadsheetId}/values/Sheet1!A1:R1?valueInputOption=USER_ENTERED`, {
+                    method: 'PUT',
+                    headers: {
+                        'Authorization': `Bearer ${this.accessToken}`,
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({
+                        values: [customHeaders]
+                    })
+                });
+
+                // Finalize
+                this.taster1 = taster1;
+                this.taster2 = taster2;
+                this.wines = [];
+                this.view = 'dashboard';
                 this.loading = false;
 
             } catch (error) {
                 console.error("Error creating spreadsheet:", error);
-                this.error = "Could not create spreadsheet.";
+                this.error = "Could not create spreadsheet. " + error.message;
                 this.loading = false;
             }
         },
@@ -510,4 +688,6 @@ createApp({
             }
         }, 100);
     }
-}).mount('#app');
+});
+
+app.mount('#app');
