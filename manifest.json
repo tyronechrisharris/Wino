@@ -1,0 +1,21 @@
+{
+  "name": "Wine Cellar Manager",
+  "short_name": "WineCellar",
+  "start_url": "./index.html",
+  "display": "standalone",
+  "background_color": "#ffffff",
+  "theme_color": "#722F37",
+  "description": "Manage your wine cellar using Google Sheets.",
+  "icons": [
+    {
+      "src": "https://via.placeholder.com/192x192.png?text=Wine+192",
+      "sizes": "192x192",
+      "type": "image/png"
+    },
+    {
+      "src": "https://via.placeholder.com/512x512.png?text=Wine+512",
+      "sizes": "512x512",
+      "type": "image/png"
+    }
+  ]
+}
