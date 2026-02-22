@@ -271,10 +271,9 @@
                             <button @click="startScanner" class="bg-gray-800 text-white py-3 rounded shadow flex items-center justify-center gap-2">
                                 <i class="fas fa-barcode"></i> Scan Barcode
                             </button>
-                            <label class="bg-blue-800 text-white py-3 rounded shadow flex items-center justify-center gap-2 cursor-pointer hover:bg-blue-700">
+                            <button @click="startLabelScanner" class="bg-blue-800 text-white py-3 rounded shadow flex items-center justify-center gap-2 hover:bg-blue-700">
                                 <i class="fas fa-camera"></i> Scan Label
-                                <input type="file" accept="image/*" capture="environment" @change="handleLabelImage" class="hidden">
-                            </label>
+                            </button>
                         </div>
 
                         <!-- OCR Debug Info -->
@@ -441,6 +440,35 @@
         <!-- Toast Notification -->
         <div v-if="toast.show" class="fixed bottom-20 left-1/2 transform -translate-x-1/2 bg-gray-800 text-white px-6 py-3 rounded-full shadow-lg z-50 transition-opacity duration-300" :class="{'opacity-100': toast.show, 'opacity-0': !toast.show}">
             {{ toast.message }}
+        </div>
+
+        <!-- Scanner Overlay -->
+        <div v-if="scanningLabel" class="scan-overlay">
+            <video id="ocr-video" autoplay playsinline muted></video>
+            <div class="scan-laser"></div>
+
+            <div class="scan-data-display">
+                <h3 class="font-bold mb-2">Scanning...</h3>
+                <div class="flex justify-between text-sm mb-1">
+                    <span>Year:</span>
+                    <span :class="scannedData.year ? 'text-green-400 font-bold' : 'text-gray-400'">{{ scannedData.year || 'Scanning...' }}</span>
+                </div>
+                <div class="flex justify-between text-sm mb-1">
+                    <span>Country:</span>
+                    <span :class="scannedData.country ? 'text-green-400 font-bold' : 'text-gray-400'">{{ scannedData.country || 'Scanning...' }}</span>
+                </div>
+                <div class="flex justify-between text-sm mb-1">
+                    <span>Varietal:</span>
+                    <span :class="scannedData.varietal ? 'text-green-400 font-bold' : 'text-gray-400'">{{ scannedData.varietal || 'Scanning...' }}</span>
+                </div>
+            </div>
+
+            <div class="scan-text">Slowly rotate the bottle...</div>
+
+            <button class="scan-close" @click="stopLabelScanner(true)">
+                Stop / Manual Entry
+            </button>
+            <canvas id="ocr-canvas" class="hidden"></canvas>
         </div>
 
         <nav v-if="(accessToken && spreadsheetId) || isLocalMode" class="bg-white border-t border-gray-200 fixed bottom-0 w-full z-40 pb-safe">

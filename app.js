@@ -257,6 +257,12 @@ const app = createApp({
             isStandalone: false,
             toast: { show: false, message: '' },
             ocrDebugLog: '',
+            scanningLabel: false,
+            scannedData: { year: null, country: null, varietal: null },
+            ocrWorker: null,
+            ocrStream: null,
+            ocrInterval: null,
+            isRecognizing: false,
             formData: {
                 name: '',
                 year: '',
@@ -570,174 +576,162 @@ const app = createApp({
 
         cancelAdd() {
             this.stopScanner();
+            this.stopLabelScanner();
             this.view = 'dashboard';
             this.selectedWine = null;
         },
 
-        async handleLabelImage(event) {
-            const file = event.target.files[0];
-            if (!file) return;
-
-            this.loading = true;
-            this.loadingMessage = 'Enhancing image & scanning...';
+        async startLabelScanner() {
+            this.scanningLabel = true;
+            this.scannedData = { year: null, country: null, varietal: null };
             this.ocrDebugLog = '';
 
             try {
-                // 1. Preprocess Image
-                const processedImage = await this.preprocessImage(file);
-
-                // 2. Run Tesseract
-                const { data: { text } } = await Tesseract.recognize(
-                    processedImage,
-                    'eng',
-                    {
-                        logger: m => {
-                            if (m.status === 'recognizing text') {
-                                this.loadingMessage = `Scanning... ${(m.progress * 100).toFixed(0)}%`;
-                            }
-                        }
-                    }
-                );
-
-                console.log("OCR Result:", text);
-                this.ocrDebugLog = text; // Show raw text to user
-
-                // 3. Parse
-                const results = this.parseOCR(text);
-
-                if (results.found > 0) {
-                    this.showToast(`Found: ${results.summary}`);
-                } else {
-                    this.showToast("Scan complete. No details found.");
+                // Initialize Worker if needed
+                if (!this.ocrWorker) {
+                    this.loading = true;
+                    this.loadingMessage = 'Initializing Scanner AI...';
+                    this.ocrWorker = await Tesseract.createWorker('eng');
+                    this.loading = false;
                 }
 
+                // Access Camera
+                const stream = await navigator.mediaDevices.getUserMedia({
+                    video: { facingMode: "environment" }
+                });
+                this.ocrStream = stream;
+
+                this.$nextTick(() => {
+                    const video = document.getElementById('ocr-video');
+                    if (video) {
+                        video.srcObject = stream;
+                        video.play();
+                    }
+                });
+
+                // Start Loop (every 800ms)
+                this.ocrInterval = setInterval(() => this.processVideoFrame(), 800);
+
             } catch (err) {
-                console.error("OCR Error:", err);
-                this.ocrDebugLog = "Error: " + err.message;
-                this.showToast("Failed to scan label. Try again.");
-            } finally {
+                console.error("Scanner Error:", err);
+                this.showToast("Camera access failed or not supported.");
+                this.scanningLabel = false;
                 this.loading = false;
             }
         },
 
-        preprocessImage(file) {
-            return new Promise((resolve, reject) => {
-                const img = new Image();
-                img.onload = () => {
-                    const canvas = document.createElement('canvas');
-                    const ctx = canvas.getContext('2d');
+        async processVideoFrame() {
+            if (!this.scanningLabel || this.isRecognizing) return;
 
-                    // Resize to max 1500px width/height to speed up
-                    const MAX_DIM = 1500;
-                    let width = img.width;
-                    let height = img.height;
+            const video = document.getElementById('ocr-video');
+            const canvas = document.getElementById('ocr-canvas');
+            if (!video || !canvas) return;
 
-                    if (width > height) {
-                        if (width > MAX_DIM) {
-                            height *= MAX_DIM / width;
-                            width = MAX_DIM;
-                        }
-                    } else {
-                        if (height > MAX_DIM) {
-                            width *= MAX_DIM / height;
-                            height = MAX_DIM;
-                        }
-                    }
+            this.isRecognizing = true;
 
-                    canvas.width = width;
-                    canvas.height = height;
+            // Draw current frame
+            const ctx = canvas.getContext('2d');
+            canvas.width = video.videoWidth;
+            canvas.height = video.videoHeight;
+            ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
 
-                    // Draw image
-                    ctx.drawImage(img, 0, 0, width, height);
+            // Preprocess (Grayscale & Contrast)
+            const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
+            const data = imageData.data;
+            for (let i = 0; i < data.length; i += 4) {
+                const avg = (data[i] + data[i + 1] + data[i + 2]) / 3;
+                let color = avg;
+                const factor = 1.5; // Contrast
+                color = factor * (color - 128) + 128;
+                color = Math.max(0, Math.min(255, color));
+                data[i] = color;
+                data[i + 1] = color;
+                data[i + 2] = color;
+            }
+            ctx.putImageData(imageData, 0, 0);
 
-                    // Get image data
-                    const imageData = ctx.getImageData(0, 0, width, height);
-                    const data = imageData.data;
+            // Extract text
+            const dataUrl = canvas.toDataURL('image/jpeg');
+            try {
+                const { data: { text } } = await this.ocrWorker.recognize(dataUrl);
 
-                    // Grayscale & High Contrast
-                    for (let i = 0; i < data.length; i += 4) {
-                        const avg = (data[i] + data[i + 1] + data[i + 2]) / 3;
-                        // Simple binarization threshold
-                        // const color = avg > 128 ? 255 : 0;
-                        // Or just increase contrast
-                        let color = avg;
-                        // Contrast factor
-                        const factor = 1.5; // increase contrast
-                        color = factor * (color - 128) + 128;
+                // Parse
+                const found = this.extractDataFromText(text);
 
-                        // Clamp
-                        color = Math.max(0, Math.min(255, color));
+                // Update State
+                if (found.year && !this.scannedData.year) this.scannedData.year = found.year;
+                if (found.country && !this.scannedData.country) this.scannedData.country = found.country;
+                if (found.varietal && !this.scannedData.varietal) this.scannedData.varietal = found.varietal;
 
-                        data[i] = color;     // Red
-                        data[i + 1] = color; // Green
-                        data[i + 2] = color; // Blue
-                    }
+                // Debug Log (latest frame)
+                this.ocrDebugLog = `Last Scan:\n${text.substring(0, 100)}...`;
 
-                    ctx.putImageData(imageData, 0, 0);
+                // Check Exit
+                if (this.scannedData.year && this.scannedData.country && this.scannedData.varietal) {
+                    this.showToast("All data found!");
+                    this.stopLabelScanner();
+                }
 
-                    // Return data URL
-                    resolve(canvas.toDataURL('image/jpeg'));
-                };
-                img.onerror = reject;
-                img.src = URL.createObjectURL(file);
-            });
+            } catch (e) {
+                console.error("Frame OCR Error", e);
+            } finally {
+                this.isRecognizing = false;
+            }
         },
 
-        parseOCR(text) {
-            const lowerText = text.toLowerCase();
-            const results = { found: 0, summary: [] };
-
-            // 1. Year (Vintage)
-            // Look for year 1900-2099
-            // Often year is isolated or preceded by "Vintage"
-            const yearMatch = text.match(/\b(19|20)\d{2}\b/);
-            if (yearMatch) {
-                this.formData.year = parseInt(yearMatch[0]);
-                results.found++;
-                results.summary.push(yearMatch[0]);
+        stopLabelScanner(manual = false) {
+            if (this.ocrInterval) clearInterval(this.ocrInterval);
+            if (this.ocrStream) {
+                this.ocrStream.getTracks().forEach(track => track.stop());
             }
+            this.scanningLabel = false;
+            this.ocrStream = null;
+            this.ocrInterval = null;
+
+            // Populate Form
+            if (this.scannedData.year) this.formData.year = this.scannedData.year;
+            if (this.scannedData.country) this.formData.country = this.scannedData.country;
+            if (this.scannedData.varietal) this.formData.varietal = this.scannedData.varietal;
+
+            if (manual) {
+                this.showToast("Stopped scanning.");
+            }
+        },
+
+        extractDataFromText(text) {
+            const lowerText = text.toLowerCase();
+            const result = {};
+
+            // 1. Year
+            const yearMatch = text.match(/\b(19|20)\d{2}\b/);
+            if (yearMatch) result.year = parseInt(yearMatch[0]);
 
             // 2. Varietal
-            let foundVarietal = false;
             for (const varietal of varietalKeywords) {
                 if (lowerText.includes(varietal)) {
-                    this.formData.varietal = varietal.split(' ')
+                    result.varietal = varietal.split(' ')
                         .map(w => w.charAt(0).toUpperCase() + w.slice(1))
                         .join(' ');
-                    foundVarietal = true;
                     break;
                 }
             }
-            if (foundVarietal) {
-                results.found++;
-                results.summary.push(this.formData.varietal);
-            }
 
-            // 3. Country of Origin
-            let foundCountry = false;
+            // 3. Country
             for (const [country, regions] of Object.entries(countryKeywords)) {
                 if (lowerText.includes(country.toLowerCase()) || regions.some(r => lowerText.includes(r))) {
-                    this.formData.country = country; // Already Title Case in key
-                    foundCountry = true;
+                    result.country = country;
                     break;
                 }
             }
-            if (foundCountry) {
-                results.found++;
-                results.summary.push(this.formData.country);
-            }
 
-            // 4. Volume
-            const volMatch = text.match(/\b\d{3}\s?ml\b/i) || text.match(/\b1\.5\s?l\b/i) || text.match(/\b750\b/);
+            // 4. Volume (Optional)
+             const volMatch = text.match(/\b\d{3}\s?ml\b/i) || text.match(/\b1\.5\s?l\b/i) || text.match(/\b750\b/);
             if (volMatch) {
-                this.formData.volume = volMatch[0];
-                results.found++;
-                results.summary.push(volMatch[0]);
+                result.volume = volMatch[0];
+                this.formData.volume = result.volume; // Update form directly for volume as bonus
             }
 
-            // Join summary
-            results.summary = results.summary.join(', ');
-            return results;
+            return result;
         },
 
         exportData() {
