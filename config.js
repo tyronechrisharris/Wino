@@ -7,10 +7,10 @@
 
 const CONFIG = {
     // Replace with your Client ID (e.g., "123456789-abc...apps.googleusercontent.com")
-    CLIENT_ID: '643913572222-8i90nnjuo7mb2f5k6tmrnepght96lnul.apps.googleusercontent.com',
+    CLIENT_ID: 'YOUR_CLIENT_ID_HERE',
 
     // Replace with your API Key
-    API_KEY: 'AIzaSyDpWTRG0uVmfKE4WjFPEMukXbTntTYYMdA',
+    API_KEY: 'YOUR_API_KEY_HERE',
 
     // Authorization scopes required by the API; multiple scopes can be
     // included, separated by spaces.

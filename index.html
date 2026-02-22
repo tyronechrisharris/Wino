@@ -15,19 +15,7 @@
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
 
     <!-- Custom Styles -->
-    <style>
-        /* Mobile-first tweaks */
-        body {
-            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
-            background-color: #f3f4f6;
-        }
-        .wine-card {
-            transition: transform 0.1s;
-        }
-        .wine-card:active {
-            transform: scale(0.98);
-        }
-    </style>
+    <link rel="stylesheet" href="style.css">
 </head>
 <body class="bg-gray-100 text-gray-900">
 
@@ -38,11 +26,16 @@
                 <h1 class="text-xl font-bold flex items-center gap-2">
                     <i class="fas fa-wine-glass-alt"></i> Wine Cellar
                 </h1>
-                <div v-if="user" class="flex items-center gap-2">
-                    <img :src="user.picture" class="w-8 h-8 rounded-full border-2 border-white" alt="Profile">
-                    <button @click="handleSignout" class="text-sm bg-red-800 px-3 py-1 rounded hover:bg-red-700">
-                        {{ isLocalMode ? 'Exit Local' : 'Sign Out' }}
+                <div class="flex items-center gap-2">
+                    <button v-if="deferredPrompt" @click="installPWA" class="bg-white text-red-900 text-xs px-2 py-1 rounded shadow hover:bg-red-100 font-bold">
+                        <i class="fas fa-download"></i> Install App
                     </button>
+                    <div v-if="user" class="flex items-center gap-2">
+                        <img :src="user.picture" class="w-8 h-8 rounded-full border-2 border-white" alt="Profile">
+                        <button @click="handleSignout" class="text-sm bg-red-800 px-3 py-1 rounded hover:bg-red-700">
+                            {{ isLocalMode ? 'Exit Local' : 'Sign Out' }}
+                        </button>
+                    </div>
                 </div>
             </div>
         </header>
@@ -273,9 +266,16 @@
 
                         <!-- Scanner Placeholder -->
                         <div id="scanner-container" class="mb-6 bg-black rounded overflow-hidden hidden"></div>
-                        <button v-if="!selectedWine" @click="startScanner" class="w-full mb-4 bg-gray-800 text-white py-3 rounded shadow flex items-center justify-center gap-2">
-                            <i class="fas fa-barcode"></i> Scan Barcode
-                        </button>
+
+                        <div v-if="!selectedWine" class="grid grid-cols-2 gap-4 mb-4">
+                            <button @click="startScanner" class="bg-gray-800 text-white py-3 rounded shadow flex items-center justify-center gap-2">
+                                <i class="fas fa-barcode"></i> Scan Barcode
+                            </button>
+                            <label class="bg-blue-800 text-white py-3 rounded shadow flex items-center justify-center gap-2 cursor-pointer hover:bg-blue-700">
+                                <i class="fas fa-camera"></i> Scan Label
+                                <input type="file" accept="image/*" capture="environment" @change="handleLabelImage" class="hidden">
+                            </label>
+                        </div>
 
                         <form @submit.prevent="submitWineForm" class="space-y-4 bg-white p-4 rounded shadow">
                             <!-- Basic Info -->
@@ -433,6 +433,9 @@
 
     <!-- HTML5-QRCode -->
     <script src="https://unpkg.com/html5-qrcode" type="text/javascript"></script>
+
+    <!-- Tesseract.js -->
+    <script src='https://unpkg.com/tesseract.js@v2.1.0/dist/tesseract.min.js'></script>
 
     <!-- App Logic -->
     <script src="app.js"></script>

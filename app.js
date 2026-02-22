@@ -8,6 +8,27 @@ const HEADERS = [
     "Tyrone perceived score", "Robot sommelier"
 ];
 
+const varietalKeywords = [
+    "cabernet sauvignon", "cabernet", "malbec", "merlot", "pinot noir",
+    "zinfandel", "syrah", "shiraz", "petite sirah", "carmenere",
+    "bordeaux", "gamay", "rhone", "primitivo", "sangiovese",
+    "chianti", "bobal", "garnacha", "grenache", "monastrell",
+    "tempranillo", "rioja", "salice salentino", "brindisi",
+    "red blend", "toscana", "super tuscan", "chardonnay",
+    "sauvignon blanc", "pinot grigio", "riesling"
+];
+
+const countryKeywords = {
+    "argentina": ["argentina", "mendoza", "patagonia"],
+    "australia": ["australia", "barossa", "mclaren"],
+    "chile": ["chile", "maipo", "colchagua"],
+    "france": ["france", "bordeaux", "rhone", "beaujolais", "burgundy"],
+    "italy": ["italy", "italia", "toscana", "tuscany", "puglia", "chianti"],
+    "portugal": ["portugal", "douro"],
+    "spain": ["spain", "españa", "rioja", "jumilla", "toro"],
+    "usa": ["usa", "united states", "california", "paso robles", "napa", "sonoma", "lodi", "willamette"]
+};
+
 const app = createApp({
     data() {
         return {
@@ -32,6 +53,7 @@ const app = createApp({
             setupStep: 'choice', // choice, create, list
             isUpgrading: false,
             isLocalMode: false,
+            deferredPrompt: null,
             toast: { show: false, message: '' },
             formData: {
                 name: '',
@@ -350,6 +372,68 @@ const app = createApp({
             this.selectedWine = null;
         },
 
+        async handleLabelImage(event) {
+            const file = event.target.files[0];
+            if (!file) return;
+
+            this.loading = true;
+            this.loadingMessage = 'Scanning label with AI...';
+
+            try {
+                const { data: { text } } = await Tesseract.recognize(
+                    file,
+                    'eng',
+                    { logger: m => console.log(m) }
+                );
+
+                console.log("OCR Result:", text);
+                this.parseOCR(text);
+
+            } catch (err) {
+                console.error("OCR Error:", err);
+                this.showToast("Failed to scan label. Try again.");
+            } finally {
+                this.loading = false;
+            }
+        },
+
+        parseOCR(text) {
+            const lowerText = text.toLowerCase();
+
+            // 1. Year (Vintage)
+            const yearMatch = text.match(/\b(19|20)\d{2}\b/);
+            if (yearMatch) {
+                this.formData.year = parseInt(yearMatch[0]);
+            }
+
+            // 2. Varietal
+            for (const varietal of varietalKeywords) {
+                if (lowerText.includes(varietal)) {
+                    // Title Case
+                    this.formData.varietal = varietal.split(' ')
+                        .map(w => w.charAt(0).toUpperCase() + w.slice(1))
+                        .join(' ');
+                    break;
+                }
+            }
+
+            // 3. Country of Origin
+            for (const [country, regions] of Object.entries(countryKeywords)) {
+                if (lowerText.includes(country) || regions.some(r => lowerText.includes(r))) {
+                    this.formData.country = country.charAt(0).toUpperCase() + country.slice(1);
+                    break;
+                }
+            }
+
+            // 4. Volume (Regex for common sizes)
+            const volMatch = text.match(/\b\d{3}\s?ml\b/i) || text.match(/\b1\.5\s?l\b/i) || text.match(/\b750\b/);
+            if (volMatch) {
+                this.formData.volume = volMatch[0];
+            }
+
+            this.showToast("Label scanned! Please verify details.");
+        },
+
         exportData() {
             const data = {
                 settings: JSON.parse(localStorage.getItem('local_settings') || '{}'),
@@ -540,6 +624,20 @@ const app = createApp({
                  this.loading = false;
              }
         },
+        installPWA() {
+            if (this.deferredPrompt) {
+                this.deferredPrompt.prompt();
+                this.deferredPrompt.userChoice.then((choiceResult) => {
+                    if (choiceResult.outcome === 'accepted') {
+                        console.log('User accepted the install prompt');
+                    } else {
+                        console.log('User dismissed the install prompt');
+                    }
+                    this.deferredPrompt = null;
+                });
+            }
+        },
+
         async checkLoginState() {
             this.loading = true;
             this.loadingMessage = 'Locating your wine cellar...';
@@ -913,6 +1011,12 @@ const app = createApp({
         }
     },
     mounted() {
+        // PWA Install Prompt Listener
+        window.addEventListener('beforeinstallprompt', (e) => {
+            e.preventDefault();
+            this.deferredPrompt = e;
+        });
+
         // Wait for GIS to load
         const checkGoogle = setInterval(() => {
             if (typeof google !== 'undefined' && google.accounts) {

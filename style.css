@@ -1,0 +1,11 @@
+/* Mobile-first tweaks */
+body {
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+    background-color: #f3f4f6;
+}
+.wine-card {
+    transition: transform 0.1s;
+}
+.wine-card:active {
+    transform: scale(0.98);
+}
