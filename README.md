@@ -49,13 +49,30 @@ A serverless, client-side Progressive Web App (PWA) to manage your wine cellar u
     *   Click **Create**.
     *   Copy the **Client ID**.
 
-### 4. Configure the App
+### 4. Security Configuration (Crucial)
+
+Since your API keys are visible in the code, you **must restrict them** to prevent unauthorized use.
+
+1.  Go to **APIs & Services > Credentials**.
+2.  Click the **Edit** (pencil) icon next to your **API Key**.
+3.  **Application restrictions**:
+    *   Select **HTTP referrers (websites)**.
+    *   Add your GitHub Pages URL: `https://<your-username>.github.io/*`
+    *   Add your local testing URL: `http://localhost:8080/*`
+    *   *Note: This ensures only your specific website can use this key.*
+4.  **API restrictions**:
+    *   Select **Restrict key**.
+    *   Select **Google Sheets API** and **Google Drive API** from the dropdown.
+    *   *Note: This limits the key's power so it can't be used for other Google services (like Maps or Translation).*
+5.  Click **Save**.
+
+### 5. Configure the App
 
 1.  Open `config.js` in the project root.
 2.  Replace `YOUR_CLIENT_ID_HERE` with your OAuth Client ID.
 3.  Replace `YOUR_API_KEY_HERE` with your API Key.
 
-### 5. Deployment
+### 6. Deployment
 
 1.  Push the code to a GitHub repository.
 2.  Go to **Settings > Pages**.
