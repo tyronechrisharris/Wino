@@ -41,7 +41,7 @@
                 <div v-if="user" class="flex items-center gap-2">
                     <img :src="user.picture" class="w-8 h-8 rounded-full border-2 border-white" alt="Profile">
                     <button @click="handleSignout" class="text-sm bg-red-800 px-3 py-1 rounded hover:bg-red-700">
-                        Sign Out
+                        {{ isLocalMode ? 'Exit Local' : 'Sign Out' }}
                     </button>
                 </div>
             </div>
@@ -58,7 +58,7 @@
 
             <!-- Views will be injected here by Vue -->
             <div v-else>
-                <div v-if="!accessToken">
+                <div v-if="!accessToken && !isLocalMode">
                     <!-- Login View Placeholder -->
                     <div class="text-center py-20">
                         <h2 class="text-2xl font-bold mb-4">Welcome to Your Wine Cellar</h2>
@@ -67,6 +67,13 @@
                             <img src="https://www.svgrepo.com/show/475656/google-color.svg" class="w-6 h-6" alt="Google Logo">
                             Sign in with Google
                         </button>
+
+                        <div class="mt-6 border-t border-gray-200 pt-6">
+                            <p class="mb-4 text-sm text-gray-500">Or use offline without Google:</p>
+                            <button @click="startLocalMode" class="bg-gray-800 text-white font-semibold py-2 px-4 rounded shadow hover:bg-gray-700 transition flex items-center justify-center gap-2 mx-auto">
+                                <i class="fas fa-hdd"></i> Use Local Mode
+                            </button>
+                        </div>
                     </div>
                 </div>
 
@@ -129,6 +136,32 @@
                             </div>
 
                             <button @click="setupStep = 'choice'" class="w-full bg-gray-200 text-gray-700 py-2 rounded">Back</button>
+                        </div>
+                    </div>
+
+                    <!-- Local Data Management View -->
+                    <div v-if="view === 'local-settings'" class="max-w-md mx-auto bg-white p-6 rounded shadow">
+                        <div class="mb-4 flex items-center justify-between">
+                            <h2 class="text-xl font-bold">Local Data Management</h2>
+                            <button @click="view = 'dashboard'" class="text-gray-500">Close</button>
+                        </div>
+
+                        <p class="text-sm text-gray-600 mb-6">Manage your local wine cellar data. You can back it up or restore from a file.</p>
+
+                        <div class="space-y-4">
+                            <button @click="exportData" class="w-full bg-green-700 text-white py-3 rounded shadow font-bold flex items-center justify-center gap-2">
+                                <i class="fas fa-download"></i> Export Data (JSON)
+                            </button>
+
+                            <div class="border-t border-gray-200 pt-4">
+                                <label class="block text-sm font-medium text-gray-700 mb-2">Import Data (JSON)</label>
+                                <input type="file" @change="importData" accept=".json" class="block w-full text-sm text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-red-50 file:text-red-700 hover:file:bg-red-100"/>
+                                <p class="text-xs text-gray-400 mt-1">This will overwrite your current local data.</p>
+                            </div>
+
+                            <button @click="handleSignout" class="w-full bg-gray-200 text-gray-700 py-3 rounded mt-6">
+                                Return to Login
+                            </button>
                         </div>
                     </div>
 
@@ -353,7 +386,7 @@
         </main>
 
         <!-- Navigation (Bottom Bar for Mobile) -->
-        <nav v-if="accessToken && spreadsheetId" class="bg-white border-t border-gray-200 fixed bottom-0 w-full z-40 pb-safe">
+        <nav v-if="(accessToken && spreadsheetId) || isLocalMode" class="bg-white border-t border-gray-200 fixed bottom-0 w-full z-40 pb-safe">
             <div class="flex justify-around items-center h-16 max-w-4xl mx-auto">
                 <button @click="view = 'dashboard'; selectedWine = null" :class="{'text-red-900': view === 'dashboard', 'text-gray-400': view !== 'dashboard'}" class="flex flex-col items-center w-full">
                     <i class="fas fa-th-list text-xl"></i>
@@ -365,9 +398,13 @@
                     </div>
                     <span class="text-xs mt-1">Add Wine</span>
                 </button>
-                <button @click="view = 'stats'" :class="{'text-red-900': view === 'stats', 'text-gray-400': view !== 'stats'}" class="flex flex-col items-center w-full">
+                <button v-if="!isLocalMode" @click="view = 'stats'" :class="{'text-red-900': view === 'stats', 'text-gray-400': view !== 'stats'}" class="flex flex-col items-center w-full">
                     <i class="fas fa-chart-pie text-xl"></i>
                     <span class="text-xs mt-1">Stats</span>
+                </button>
+                <button v-else @click="view = 'local-settings'" :class="{'text-red-900': view === 'local-settings', 'text-gray-400': view !== 'local-settings'}" class="flex flex-col items-center w-full">
+                    <i class="fas fa-cog text-xl"></i>
+                    <span class="text-xs mt-1">Data</span>
                 </button>
             </div>
         </nav>

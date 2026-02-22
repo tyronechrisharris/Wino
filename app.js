@@ -31,6 +31,7 @@ const app = createApp({
             spreadsheetsList: [],
             setupStep: 'choice', // choice, create, list
             isUpgrading: false,
+            isLocalMode: false,
             formData: {
                 name: '',
                 year: '',
@@ -128,6 +129,23 @@ const app = createApp({
         async saveWine() {
             this.loading = true;
             this.loadingMessage = 'Saving wine...';
+
+            if (this.isLocalMode) {
+                try {
+                    const wine = { ...this.formData, id: Date.now() };
+                    const wines = JSON.parse(localStorage.getItem('local_wines') || '[]');
+                    wines.push(wine);
+                    localStorage.setItem('local_wines', JSON.stringify(wines));
+                    await this.fetchWines();
+                    this.view = 'dashboard';
+                } catch (e) {
+                    console.error("Error saving local wine:", e);
+                    this.error = "Failed to save wine locally.";
+                }
+                this.loading = false;
+                return;
+            }
+
             try {
                 const row = this.wineToRow(this.formData);
 
@@ -156,6 +174,30 @@ const app = createApp({
         async updateWine() {
             this.loading = true;
             this.loadingMessage = 'Updating wine...';
+
+            if (this.isLocalMode) {
+                try {
+                    const wines = JSON.parse(localStorage.getItem('local_wines') || '[]');
+                    const index = wines.findIndex(w => (w.id === this.selectedWine.id) || (JSON.stringify(w) === JSON.stringify(this.selectedWine)));
+                    // Fallback to index if no ID match (legacy local data)
+                    const targetIndex = index !== -1 ? index : this.selectedWine._rowIndex;
+
+                    if (targetIndex >= 0 && targetIndex < wines.length) {
+                         wines[targetIndex] = { ...wines[targetIndex], ...this.formData };
+                         localStorage.setItem('local_wines', JSON.stringify(wines));
+                    }
+
+                    await this.fetchWines();
+                    this.view = 'dashboard';
+                    this.selectedWine = null;
+                } catch (e) {
+                    console.error("Error updating local wine:", e);
+                    this.error = "Failed to update wine locally.";
+                }
+                this.loading = false;
+                return;
+            }
+
             try {
                 const row = this.wineToRow(this.formData);
                 const rowIndex = this.selectedWine._rowIndex; // 1-based index
@@ -285,6 +327,48 @@ const app = createApp({
             this.selectedWine = null;
         },
 
+        exportData() {
+            const data = {
+                settings: JSON.parse(localStorage.getItem('local_settings') || '{}'),
+                wines: JSON.parse(localStorage.getItem('local_wines') || '[]')
+            };
+
+            const dataStr = "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify(data));
+            const downloadAnchorNode = document.createElement('a');
+            downloadAnchorNode.setAttribute("href",     dataStr);
+            downloadAnchorNode.setAttribute("download", "wine_cellar_backup.json");
+            document.body.appendChild(downloadAnchorNode); // required for firefox
+            downloadAnchorNode.click();
+            downloadAnchorNode.remove();
+        },
+
+        importData(event) {
+            const file = event.target.files[0];
+            if (!file) return;
+
+            const reader = new FileReader();
+            reader.onload = async (e) => {
+                try {
+                    const data = JSON.parse(e.target.result);
+                    if (data.settings && data.wines) {
+                        localStorage.setItem('local_settings', JSON.stringify(data.settings));
+                        localStorage.setItem('local_wines', JSON.stringify(data.wines));
+
+                        alert('Data imported successfully!');
+                        await this.fetchSettings();
+                        await this.fetchWines();
+                        this.view = 'dashboard';
+                    } else {
+                        alert('Invalid data format.');
+                    }
+                } catch (error) {
+                    console.error("Import error:", error);
+                    alert('Failed to parse file.');
+                }
+            };
+            reader.readAsText(file);
+        },
+
         initGIS() {
              this.tokenClient = google.accounts.oauth2.initTokenClient({
                 client_id: CONFIG.CLIENT_ID,
@@ -329,6 +413,14 @@ const app = createApp({
             }
         },
         handleSignout() {
+            if (this.isLocalMode) {
+                this.isLocalMode = false;
+                this.user = null;
+                this.wines = [];
+                this.view = 'dashboard';
+                return;
+            }
+
             const token = this.accessToken;
             if (token) {
                 google.accounts.oauth2.revoke(token, () => {
@@ -342,6 +434,11 @@ const app = createApp({
             localStorage.removeItem('google_access_token');
             localStorage.removeItem('google_token_expiry');
             localStorage.removeItem('wine_spreadsheet_id');
+        },
+        startLocalMode() {
+             this.isLocalMode = true;
+             this.user = { picture: 'https://www.svgrepo.com/show/532362/user.svg' }; // Dummy user
+             this.checkLoginState();
         },
         async fetchUserInfo() {
              this.loading = true;
@@ -379,6 +476,19 @@ const app = createApp({
             this.loading = true;
             this.loadingMessage = 'Locating your wine cellar...';
 
+            if (this.isLocalMode) {
+                 const settings = await this.fetchSettings();
+                 if (settings) {
+                     await this.fetchWines();
+                     this.view = 'dashboard';
+                 } else {
+                     this.view = 'setup';
+                     this.setupStep = 'create'; // Skip choice in local mode
+                 }
+                 this.loading = false;
+                 return;
+            }
+
             // Check local storage first
             let id = localStorage.getItem('wine_spreadsheet_id');
             if (id) {
@@ -394,6 +504,16 @@ const app = createApp({
         },
 
         async fetchSettings() {
+            if (this.isLocalMode) {
+                const settings = JSON.parse(localStorage.getItem('local_settings') || 'null');
+                if (settings) {
+                    this.taster1 = settings.taster1;
+                    this.taster2 = settings.taster2;
+                    return true;
+                }
+                return false;
+            }
+
             try {
                 // Try to read Settings!A1:B1
                 const response = await fetch(`https://sheets.googleapis.com/v4/spreadsheets/${this.spreadsheetId}/values/Settings!A1:B1`, {
@@ -542,6 +662,27 @@ const app = createApp({
         async createCellar() {
             this.loading = true;
             this.loadingMessage = 'Creating your wine cellar...';
+
+            if (this.isLocalMode) {
+                 const taster1 = this.newTaster1 || 'Taster 1';
+                 const taster2 = this.newTaster2 || 'Taster 2';
+
+                 const settings = { taster1, taster2 };
+                 localStorage.setItem('local_settings', JSON.stringify(settings));
+
+                 // Init empty wines if not present
+                 if (!localStorage.getItem('local_wines')) {
+                     localStorage.setItem('local_wines', JSON.stringify([]));
+                 }
+
+                 this.taster1 = taster1;
+                 this.taster2 = taster2;
+                 await this.fetchWines();
+                 this.view = 'dashboard';
+                 this.loading = false;
+                 return;
+            }
+
             try {
                 // 1. Create Spreadsheet
                 const createResponse = await fetch('https://sheets.googleapis.com/v4/spreadsheets', {
@@ -628,6 +769,22 @@ const app = createApp({
         async fetchWines() {
             this.loading = true;
             this.loadingMessage = 'Fetching wines...';
+
+            if (this.isLocalMode) {
+                try {
+                    const localData = JSON.parse(localStorage.getItem('local_wines') || '[]');
+                    this.wines = localData.map((wine, index) => ({...wine, _rowIndex: index}));
+                    this.wines.forEach((w, i) => {
+                         if(!w.id) w.id = Date.now() + Math.random();
+                         w._rowIndex = i;
+                    });
+                } catch (e) {
+                    this.wines = [];
+                }
+                this.loading = false;
+                return;
+            }
+
             try {
                 const response = await fetch(`https://sheets.googleapis.com/v4/spreadsheets/${this.spreadsheetId}/values/Sheet1!A2:R?majorDimension=ROWS`, {
                     headers: { 'Authorization': `Bearer ${this.accessToken}` }
