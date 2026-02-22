@@ -43,6 +43,7 @@ body {
     box-shadow: 0 0 10px red;
     animation: scan-laser 2s infinite ease-in-out;
     z-index: 101;
+    pointer-events: none; /* Let taps pass through to video */
 }
 
 @keyframes scan-laser {
@@ -66,7 +67,7 @@ body {
 
 .scan-data-display {
     position: absolute;
-    top: 10%;
+    top: 5rem;
     left: 5%;
     width: 90%;
     background-color: rgba(0,0,0,0.6);
@@ -75,6 +76,7 @@ body {
     color: white;
     font-size: 0.9rem;
     z-index: 102;
+    pointer-events: none; /* Let taps pass through unless interacting */
 }
 
 .scan-close {
@@ -91,4 +93,63 @@ body {
     z-index: 103;
     border: none;
     cursor: pointer;
+}
+
+/* Focus Reticle */
+.focus-reticle {
+    position: absolute;
+    border: 2px solid #00ff00;
+    box-shadow: 0 0 10px #00ff00, inset 0 0 10px #00ff00;
+    z-index: 102;
+    pointer-events: none;
+    display: none; /* Hidden by default */
+    border-radius: 8px;
+    transform: translate(-50%, -50%); /* Center on click point */
+}
+
+/* Target Field Toggles */
+.scan-controls {
+    position: absolute;
+    top: 1rem;
+    left: 0;
+    width: 100%;
+    display: flex;
+    justify-content: center;
+    gap: 0.5rem;
+    z-index: 103;
+    padding: 0 1rem;
+    overflow-x: auto;
+}
+
+.scan-btn {
+    background-color: rgba(0,0,0,0.5);
+    color: white;
+    border: 1px solid rgba(255,255,255,0.3);
+    padding: 6px 12px;
+    border-radius: 20px;
+    font-size: 0.8rem;
+    white-space: nowrap;
+    cursor: pointer;
+    transition: all 0.2s;
+}
+
+.scan-btn.active {
+    background-color: #00ff00;
+    color: black;
+    border-color: #00ff00;
+    font-weight: bold;
+}
+
+.scan-clear-focus {
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    background: rgba(255,0,0,0.8);
+    color: white;
+    padding: 8px 16px;
+    border-radius: 20px;
+    z-index: 104;
+    display: none; /* Show only when focused */
+    margin-top: 60px; /* Below reticle */
 }

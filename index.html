@@ -444,11 +444,30 @@
 
         <!-- Scanner Overlay -->
         <div v-if="scanningLabel" class="scan-overlay">
-            <video id="ocr-video" autoplay playsinline muted></video>
-            <div class="scan-laser"></div>
+            <video id="ocr-video" autoplay playsinline muted @click="handleVideoTap"></video>
 
-            <div class="scan-data-display">
-                <h3 class="font-bold mb-2">Scanning...</h3>
+            <!-- Laser (Hidden when focused) -->
+            <div v-if="!focusArea" class="scan-laser"></div>
+
+            <!-- Focus Reticle (Moved by handleVideoTap) -->
+            <div id="focus-reticle" class="focus-reticle" :style="reticleStyle" v-show="focusArea"></div>
+
+            <!-- Clear Focus Button -->
+            <button v-if="focusArea" class="scan-clear-focus" @click.stop="clearFocus" style="display: block;">
+                Clear Focus
+            </button>
+
+            <!-- Target Controls -->
+            <div class="scan-controls">
+                <button @click="setScanTarget('all')" :class="{'active': scanTarget === 'all'}" class="scan-btn">All</button>
+                <button @click="setScanTarget('name')" :class="{'active': scanTarget === 'name'}" class="scan-btn">Item Name</button>
+                <button @click="setScanTarget('year')" :class="{'active': scanTarget === 'year'}" class="scan-btn">Year</button>
+                <button @click="setScanTarget('country')" :class="{'active': scanTarget === 'country'}" class="scan-btn">Country</button>
+                <button @click="setScanTarget('varietal')" :class="{'active': scanTarget === 'varietal'}" class="scan-btn">Varietal</button>
+            </div>
+
+            <div class="scan-data-display" v-if="!focusArea">
+                <h3 class="font-bold mb-2">Sweeping...</h3>
                 <div class="flex justify-between text-sm mb-1">
                     <span>Year:</span>
                     <span :class="scannedData.year ? 'text-green-400 font-bold' : 'text-gray-400'">{{ scannedData.year || 'Scanning...' }}</span>
@@ -463,7 +482,9 @@
                 </div>
             </div>
 
-            <div class="scan-text">Slowly rotate the bottle...</div>
+            <div class="scan-text" v-if="!focusArea">
+                {{ scanTarget === 'all' ? 'Slowly rotate the bottle...' : 'Tap screen to focus on ' + scanTarget }}
+            </div>
 
             <button class="scan-close" @click="stopLabelScanner(true)">
                 Stop / Manual Entry

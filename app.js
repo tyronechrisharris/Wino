@@ -263,6 +263,9 @@ const app = createApp({
             ocrStream: null,
             ocrInterval: null,
             isRecognizing: false,
+            scanTarget: 'all', // all, name, year, country, varietal
+            focusArea: null, // { x, y, width, height } (video coordinates)
+            reticleStyle: { top: '50%', left: '50%', display: 'none' },
             formData: {
                 name: '',
                 year: '',
@@ -585,6 +588,8 @@ const app = createApp({
             this.scanningLabel = true;
             this.scannedData = { year: null, country: null, varietal: null };
             this.ocrDebugLog = '';
+            this.scanTarget = 'all';
+            this.clearFocus();
 
             try {
                 // Initialize Worker if needed
@@ -629,11 +634,28 @@ const app = createApp({
 
             this.isRecognizing = true;
 
-            // Draw current frame
             const ctx = canvas.getContext('2d');
-            canvas.width = video.videoWidth;
-            canvas.height = video.videoHeight;
-            ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+
+            // Determine Draw Area (Full or Cropped)
+            if (this.focusArea) {
+                // Crop logic
+                canvas.width = this.focusArea.width;
+                canvas.height = this.focusArea.height;
+
+                // Safety check for bounds
+                let sx = Math.max(0, this.focusArea.x);
+                let sy = Math.max(0, this.focusArea.y);
+                // Ensure we don't read outside video
+                if (sx + canvas.width > video.videoWidth) sx = video.videoWidth - canvas.width;
+                if (sy + canvas.height > video.videoHeight) sy = video.videoHeight - canvas.height;
+
+                ctx.drawImage(video, sx, sy, canvas.width, canvas.height, 0, 0, canvas.width, canvas.height);
+            } else {
+                // Full sweep
+                canvas.width = video.videoWidth;
+                canvas.height = video.videoHeight;
+                ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+            }
 
             // Preprocess (Grayscale & Contrast)
             const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
@@ -654,20 +676,26 @@ const app = createApp({
             const dataUrl = canvas.toDataURL('image/jpeg');
             try {
                 const { data: { text } } = await this.ocrWorker.recognize(dataUrl);
+                const cleanedText = text.replace(/\n/g, ' ').trim();
 
-                // Parse
-                const found = this.extractDataFromText(text);
+                if (this.focusArea) {
+                    // Focused Capture Mode: Direct Assignment
+                    if (this.scanTarget !== 'all' && cleanedText.length > 2) {
+                        this.assignFocusedText(cleanedText);
+                    } else if (this.scanTarget === 'all') {
+                         // Still run parser if "All" is selected even with focus
+                         this.runSweepingParser(text);
+                    }
+                } else {
+                    // Sweeping Mode
+                    this.runSweepingParser(text);
+                }
 
-                // Update State
-                if (found.year && !this.scannedData.year) this.scannedData.year = found.year;
-                if (found.country && !this.scannedData.country) this.scannedData.country = found.country;
-                if (found.varietal && !this.scannedData.varietal) this.scannedData.varietal = found.varietal;
+                // Debug Log
+                this.ocrDebugLog = `Last Scan (${this.focusArea ? 'Focused' : 'Sweep'}):\n${cleanedText.substring(0, 100)}...`;
 
-                // Debug Log (latest frame)
-                this.ocrDebugLog = `Last Scan:\n${text.substring(0, 100)}...`;
-
-                // Check Exit
-                if (this.scannedData.year && this.scannedData.country && this.scannedData.varietal) {
+                // Check Exit (only if sweeping or automated)
+                if (!this.focusArea && this.scannedData.year && this.scannedData.country && this.scannedData.varietal) {
                     this.showToast("All data found!");
                     this.stopLabelScanner();
                 }
@@ -677,6 +705,121 @@ const app = createApp({
             } finally {
                 this.isRecognizing = false;
             }
+        },
+
+        assignFocusedText(text) {
+             // Basic cleanup
+             const clean = text.replace(/[^a-zA-Z0-9\s\.\-\']/g, '').replace(/\s+/g, ' ').trim();
+             if (!clean) return;
+
+             // Map target to formData field
+             const map = {
+                 'name': 'name',
+                 'year': 'year',
+                 'country': 'country',
+                 'varietal': 'varietal'
+             };
+
+             const field = map[this.scanTarget];
+             if (field) {
+                 this.formData[field] = clean;
+
+                 // Feedback
+                 if (navigator.vibrate) navigator.vibrate(50);
+                 this.showToast(`Captured ${this.scanTarget}: ${clean}`, 1000);
+
+                 // Optional: Auto-clear focus after capture?
+                 // User might want to try again if bad capture, so keep focus.
+             }
+        },
+
+        runSweepingParser(text) {
+             const found = this.extractDataFromText(text);
+             if (found.year && !this.scannedData.year) this.scannedData.year = found.year;
+             if (found.country && !this.scannedData.country) this.scannedData.country = found.country;
+             if (found.varietal && !this.scannedData.varietal) this.scannedData.varietal = found.varietal;
+        },
+
+        setScanTarget(target) {
+            this.scanTarget = target;
+            if (target === 'all') {
+                this.clearFocus();
+            } else {
+                this.showToast(`Tap to capture ${target}`);
+            }
+        },
+
+        handleVideoTap(event) {
+            const video = event.target;
+            const rect = video.getBoundingClientRect();
+
+            // Click coordinates relative to video element
+            const clickX = event.clientX - rect.left;
+            const clickY = event.clientY - rect.top;
+
+            // Calculate Video Scale
+            // videoWidth is the intrinsic size (e.g., 1920x1080)
+            // rect.width is the display size (e.g., 375x667)
+
+            // Object-fit: cover logic is tricky.
+            // If we assume the video fills the screen (100vw/100vh) and preserves aspect ratio:
+            const videoRatio = video.videoWidth / video.videoHeight;
+            const screenRatio = rect.width / rect.height;
+
+            let scale, offsetX, offsetY;
+
+            if (screenRatio > videoRatio) {
+                // Screen is wider than video (video cropped top/bottom) - unlikely for mobile portrait
+                scale = rect.width / video.videoWidth;
+                offsetX = 0;
+                offsetY = (rect.height - (video.videoHeight * scale)) / 2;
+            } else {
+                // Screen is taller than video (video cropped left/right) - standard mobile portrait
+                scale = rect.height / video.videoHeight;
+                offsetY = 0;
+                offsetX = (rect.width - (video.videoWidth * scale)) / 2;
+            }
+
+            // Map Screen Click to Video Source Coordinate
+            // sourceX = (clickX - offsetX) / scale
+            const sourceX = (clickX - offsetX) / scale;
+            const sourceY = (clickY - offsetY) / scale;
+
+            // Define Crop Box (250x80 on screen -> scaled to source)
+            // But user said "width: 250px; height: 80px" on screen.
+            const screenW = 250;
+            const screenH = 80;
+
+            const sourceW = screenW / scale;
+            const sourceH = screenH / scale;
+
+            this.focusArea = {
+                x: sourceX - (sourceW / 2),
+                y: sourceY - (sourceH / 2),
+                width: sourceW,
+                height: sourceH
+            };
+
+            // Update Reticle UI (Position on screen)
+            this.reticleStyle = {
+                top: `${clickY}px`,
+                left: `${clickX}px`,
+                width: `${screenW}px`,
+                height: `${screenH}px`,
+                display: 'block'
+            };
+
+            // If target was 'all', switch to 'name' as default focused target?
+            // Or just keep 'all' and focus?
+            // "Capture Item Name... which is difficult".
+            if (this.scanTarget === 'all') {
+                this.setScanTarget('name');
+            }
+        },
+
+        clearFocus() {
+            this.focusArea = null;
+            this.reticleStyle.display = 'none';
         },
 
         stopLabelScanner(manual = false) {
