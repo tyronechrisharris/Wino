@@ -1119,7 +1119,7 @@ const app = createApp({
                 const settings = JSON.parse(localStorage.getItem('local_settings') || 'null');
                 if (settings) {
                     this.taster1 = settings.taster1;
-                    this.taster2 = settings.taster2;
+                    this.taster2 = settings.taster2 || '';
                     return true;
                 }
                 return false;
@@ -1135,7 +1135,7 @@ const app = createApp({
                     const data = await response.json();
                     if (data.values && data.values[0]) {
                         this.taster1 = data.values[0][0] || 'Taster 1';
-                        this.taster2 = data.values[0][1] || 'Taster 2';
+                        this.taster2 = data.values[0][1] || '';
                         return true;
                     }
                 }
@@ -1143,7 +1143,7 @@ const app = createApp({
                 // Settings sheet might not exist or be empty
                 console.warn("Settings sheet not found or empty.");
                 this.taster1 = 'Taster 1';
-                this.taster2 = 'Taster 2';
+                this.taster2 = '';
                 return false;
 
             } catch (e) {
@@ -1216,7 +1216,7 @@ const app = createApp({
 
                 // 2. Write Taster Names to Settings
                 const taster1 = this.newTaster1 || 'Taster 1';
-                const taster2 = this.newTaster2 || 'Taster 2';
+                const taster2 = this.newTaster2 || '';
 
                 await fetch(`https://sheets.googleapis.com/v4/spreadsheets/${this.spreadsheetId}/values/Settings!A1:B1?valueInputOption=USER_ENTERED`, {
                     method: 'PUT',
@@ -1241,8 +1241,8 @@ const app = createApp({
                 const customHeaders = [...HEADERS];
                 customHeaders[13] = `${taster1} tasty notes`;
                 customHeaders[14] = `${taster1} score`;
-                customHeaders[15] = `${taster2} tasting notes`;
-                customHeaders[16] = `${taster2} score`;
+                customHeaders[15] = `${taster2 || 'Taster 2'} tasting notes`;
+                customHeaders[16] = `${taster2 || 'Taster 2'} score`;
 
                 await fetch(`https://sheets.googleapis.com/v4/spreadsheets/${this.spreadsheetId}/values/Sheet1!A1:R1?valueInputOption=USER_ENTERED`, {
                     method: 'PUT',
@@ -1284,7 +1284,7 @@ const app = createApp({
 
             if (this.isLocalMode) {
                  const taster1 = this.newTaster1 || 'Taster 1';
-                 const taster2 = this.newTaster2 || 'Taster 2';
+                 const taster2 = this.newTaster2 || '';
 
                  const settings = { taster1, taster2 };
                  localStorage.setItem('local_settings', JSON.stringify(settings));
@@ -1337,7 +1337,7 @@ const app = createApp({
 
                 // 3. Write Taster Names to Settings
                 const taster1 = this.newTaster1 || 'Taster 1';
-                const taster2 = this.newTaster2 || 'Taster 2';
+                const taster2 = this.newTaster2 || '';
 
                 await fetch(`https://sheets.googleapis.com/v4/spreadsheets/${this.spreadsheetId}/values/Settings!A1:B1?valueInputOption=USER_ENTERED`, {
                     method: 'PUT',
@@ -1356,8 +1356,8 @@ const app = createApp({
                 // "Lindy tasty notes", "lindy delusional score", "Tyrone tasting notes", "Tyrone perceived score"
                 customHeaders[13] = `${taster1} tasty notes`;
                 customHeaders[14] = `${taster1} score`;
-                customHeaders[15] = `${taster2} tasting notes`;
-                customHeaders[16] = `${taster2} score`;
+                customHeaders[15] = `${taster2 || 'Taster 2'} tasting notes`;
+                customHeaders[16] = `${taster2 || 'Taster 2'} score`;
 
                 // 5. Write Headers to Sheet1
                 await fetch(`https://sheets.googleapis.com/v4/spreadsheets/${this.spreadsheetId}/values/Sheet1!A1:R1?valueInputOption=USER_ENTERED`, {

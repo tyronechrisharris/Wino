@@ -98,16 +98,16 @@
                                 </div>
                                 <div>
                                     <label class="block text-sm font-medium text-gray-700">Taster 2 Name</label>
-                                    <input v-model="newTaster2" type="text" class="mt-1 block w-full p-2 border border-gray-300 rounded shadow-sm" placeholder="e.g. Tyrone">
+                                    <input v-model="newTaster2" type="text" class="mt-1 block w-full p-2 border border-gray-300 rounded shadow-sm" placeholder="(Optional)">
                                 </div>
                             </div>
 
                             <div class="flex gap-2">
                                 <button @click="setupStep = 'choice'; isUpgrading = false" class="w-1/3 bg-gray-200 text-gray-700 py-2 rounded">Back</button>
-                                <button v-if="!isUpgrading" @click="createCellar" :disabled="!newTaster1 || !newTaster2" class="w-2/3 bg-red-900 text-white py-2 rounded font-bold disabled:opacity-50">
+                                <button v-if="!isUpgrading" @click="createCellar" :disabled="!newTaster1" class="w-2/3 bg-red-900 text-white py-2 rounded font-bold disabled:opacity-50">
                                     Create Cellar
                                 </button>
-                                <button v-else @click="upgradeCellar" :disabled="!newTaster1 || !newTaster2" class="w-2/3 bg-red-900 text-white py-2 rounded font-bold disabled:opacity-50">
+                                <button v-else @click="upgradeCellar" :disabled="!newTaster1" class="w-2/3 bg-red-900 text-white py-2 rounded font-bold disabled:opacity-50">
                                     Save Tasters
                                 </button>
                             </div>
@@ -243,7 +243,7 @@
                                     <div class="text-right text-xs text-gray-500 mt-1">Score: {{ selectedWine.lindyScore }}</div>
                                 </div>
 
-                                <div>
+                                <div v-if="taster2">
                                     <label class="text-xs text-gray-500 uppercase block mb-1">{{ taster2 || 'Taster 2' }}'s Notes</label>
                                     <p class="italic text-gray-700 bg-gray-50 p-2 rounded border border-gray-100 min-h-[3rem]">{{ selectedWine.tyroneNotes || 'No notes yet.' }}</p>
                                     <div class="text-right text-xs text-gray-500 mt-1">Score: {{ selectedWine.tyroneScore }}</div>
@@ -371,11 +371,11 @@
                                     <label class="block text-sm font-medium text-gray-700">{{ taster1 || 'Taster 1' }}'s Score</label>
                                     <input v-model="formData.lindyScore" type="text" class="mt-1 block w-full p-2 border border-gray-300 rounded shadow-sm">
                                 </div>
-                                <div>
+                                <div v-if="taster2">
                                     <label class="block text-sm font-medium text-gray-700">{{ taster2 || 'Taster 2' }}'s Notes</label>
                                     <textarea v-model="formData.tyroneNotes" rows="2" class="mt-1 block w-full p-2 border border-gray-300 rounded shadow-sm"></textarea>
                                 </div>
-                                <div>
+                                <div v-if="taster2">
                                     <label class="block text-sm font-medium text-gray-700">{{ taster2 || 'Taster 2' }}'s Score</label>
                                     <input v-model="formData.tyroneScore" type="text" class="mt-1 block w-full p-2 border border-gray-300 rounded shadow-sm"></textarea>
                                 </div>
