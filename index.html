@@ -150,7 +150,11 @@
 
                         <div class="space-y-4">
                             <button @click="exportData" class="w-full bg-green-700 text-white py-3 rounded shadow font-bold flex items-center justify-center gap-2">
-                                <i class="fas fa-download"></i> Export Data (JSON)
+                                <i class="fas fa-download"></i> Backup Data (JSON)
+                            </button>
+
+                            <button @click="exportToCSV" class="w-full bg-blue-700 text-white py-3 rounded shadow font-bold flex items-center justify-center gap-2">
+                                <i class="fas fa-file-csv"></i> Export to CSV
                             </button>
 
                             <div class="border-t border-gray-200 pt-4">
@@ -167,8 +171,11 @@
 
                     <!-- Dashboard View -->
                     <div v-if="view === 'dashboard'">
-                        <div class="mb-4">
+                        <div class="mb-4 flex gap-2">
                             <input v-model="searchQuery" type="text" placeholder="Search wines..." class="w-full p-3 border border-gray-300 rounded shadow-sm focus:outline-none focus:ring-2 focus:ring-red-900">
+                            <button v-if="!isLocalMode" @click="exportToCSV" class="bg-blue-700 text-white px-3 py-2 rounded shadow flex items-center justify-center">
+                                <i class="fas fa-file-csv"></i>
+                            </button>
                         </div>
 
                         <div v-if="filteredWines.length === 0" class="text-center text-gray-500 py-10">

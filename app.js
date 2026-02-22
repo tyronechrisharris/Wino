@@ -365,6 +365,51 @@ const app = createApp({
             downloadAnchorNode.remove();
         },
 
+        exportToCSV() {
+            // 1. Prepare Headers (Dynamic Tasters)
+            const taster1 = this.taster1 || 'Taster 1';
+            const taster2 = this.taster2 || 'Taster 2';
+
+            const customHeaders = [...HEADERS];
+            customHeaders[13] = `${taster1} tasty notes`;
+            customHeaders[14] = `${taster1} score`;
+            customHeaders[15] = `${taster2} tasting notes`;
+            customHeaders[16] = `${taster2} score`;
+
+            // 2. Prepare Rows
+            const rows = this.wines.map(wine => this.wineToRow(wine));
+
+            // 3. Build CSV String
+            // Helper to escape CSV fields
+            const escapeCSV = (field) => {
+                if (field === null || field === undefined) return '';
+                const stringField = String(field);
+                if (stringField.includes(',') || stringField.includes('"') || stringField.includes('\n')) {
+                    return `"${stringField.replace(/"/g, '""')}"`;
+                }
+                return stringField;
+            };
+
+            let csvContent = "data:text/csv;charset=utf-8,";
+
+            // Add Headers Row
+            csvContent += customHeaders.map(escapeCSV).join(",") + "\r\n";
+
+            // Add Data Rows
+            rows.forEach(rowArray => {
+                csvContent += rowArray.map(escapeCSV).join(",") + "\r\n";
+            });
+
+            // 4. Download
+            const encodedUri = encodeURI(csvContent);
+            const link = document.createElement("a");
+            link.setAttribute("href", encodedUri);
+            link.setAttribute("download", "wine_cellar_export.csv");
+            document.body.appendChild(link);
+            link.click();
+            link.remove();
+        },
+
         importData(event) {
             const file = event.target.files[0];
             if (!file) return;
