@@ -27,8 +27,8 @@
                     <i class="fas fa-wine-glass-alt"></i> Wine Cellar
                 </h1>
                 <div class="flex items-center gap-2">
-                    <button v-if="deferredPrompt" @click="installPWA" class="bg-white text-red-900 text-xs px-2 py-1 rounded shadow hover:bg-red-100 font-bold">
-                        <i class="fas fa-download"></i> Install App
+                    <button v-if="!isStandalone" @click="installPWA" class="bg-white text-red-900 text-xs px-2 py-1 rounded shadow hover:bg-red-100 font-bold">
+                        <i class="fas fa-download"></i> Install
                     </button>
                     <div v-if="user" class="flex items-center gap-2">
                         <img :src="user.picture" class="w-8 h-8 rounded-full border-2 border-white" alt="Profile">
@@ -393,6 +393,42 @@
         </main>
 
         <!-- Navigation (Bottom Bar for Mobile) -->
+        <!-- Install Instructions Modal -->
+        <div v-if="showInstallModal" class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+            <div class="bg-white rounded-lg shadow-xl max-w-sm w-full p-6">
+                <div class="flex justify-between items-center mb-4">
+                    <h3 class="text-lg font-bold">Install App</h3>
+                    <button @click="showInstallModal = false" class="text-gray-500 hover:text-gray-700">
+                        <i class="fas fa-times"></i>
+                    </button>
+                </div>
+
+                <p class="mb-4 text-gray-600">Install this app to your home screen for the best experience.</p>
+
+                <div class="space-y-4">
+                    <div class="flex items-start gap-3">
+                        <i class="fab fa-apple text-2xl text-gray-800 mt-1"></i>
+                        <div>
+                            <p class="font-bold text-sm">iOS (Safari)</p>
+                            <p class="text-xs text-gray-500">Tap the Share button <i class="fas fa-share-square"></i> and select "Add to Home Screen".</p>
+                        </div>
+                    </div>
+
+                    <div class="flex items-start gap-3">
+                        <i class="fab fa-android text-2xl text-green-600 mt-1"></i>
+                        <div>
+                            <p class="font-bold text-sm">Android (Chrome)</p>
+                            <p class="text-xs text-gray-500">Tap the Menu button <i class="fas fa-ellipsis-v"></i> and select "Install App" or "Add to Home Screen".</p>
+                        </div>
+                    </div>
+                </div>
+
+                <button @click="showInstallModal = false" class="mt-6 w-full bg-red-900 text-white py-2 rounded font-bold">
+                    Got it
+                </button>
+            </div>
+        </div>
+
         <!-- Toast Notification -->
         <div v-if="toast.show" class="fixed bottom-20 left-1/2 transform -translate-x-1/2 bg-gray-800 text-white px-6 py-3 rounded-full shadow-lg z-50 transition-opacity duration-300" :class="{'opacity-100': toast.show, 'opacity-0': !toast.show}">
             {{ toast.message }}

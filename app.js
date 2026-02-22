@@ -54,6 +54,8 @@ const app = createApp({
             isUpgrading: false,
             isLocalMode: false,
             deferredPrompt: null,
+            showInstallModal: false,
+            isStandalone: false,
             toast: { show: false, message: '' },
             formData: {
                 name: '',
@@ -635,6 +637,8 @@ const app = createApp({
                     }
                     this.deferredPrompt = null;
                 });
+            } else {
+                this.showInstallModal = true;
             }
         },
 
@@ -1011,6 +1015,11 @@ const app = createApp({
         }
     },
     mounted() {
+        // Check if standalone
+        if (window.matchMedia('(display-mode: standalone)').matches || window.navigator.standalone === true) {
+            this.isStandalone = true;
+        }
+
         // PWA Install Prompt Listener
         window.addEventListener('beforeinstallprompt', (e) => {
             e.preventDefault();
