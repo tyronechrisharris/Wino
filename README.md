@@ -71,6 +71,33 @@ A serverless, client-side Progressive Web App (PWA) to manage your wine cellar u
     *   If it doesn't exist, it will create one with the correct columns.
     *   If you have an existing one, rename it to "Wine Cellar Manager" or update the name in `config.js`.
 
+## Running Completely Offline (No Google)
+
+You can run this app entirely on your device without using Google Sheets or signing in. Your data will be stored in your browser's local storage.
+
+### Local Installation on Android/iOS
+
+Since this is a client-side app, you can download the code and run it directly on your phone.
+
+**Method A: Simple File Access (Limited)**
+1.  Download the repository as a ZIP file.
+2.  Extract the ZIP to a folder on your phone.
+3.  Open `index.html` in your mobile browser.
+    *   *Note: Some features like the Service Worker (offline caching) and Camera access may be restricted by your browser when opening files directly.*
+
+**Method B: Local Web Server (Recommended)**
+For the best experience, use a simple web server app on your phone to serve the folder.
+1.  **Android**: Install an app like "Tiny Web Server" or "Simple HTTP Server".
+2.  **iOS**: Install an app like "Documents by Readdle" which has a built-in browser and file manager, or a dedicated server app.
+3.  Point the server app to the extracted `wine-cellar-pwa` folder.
+4.  Open the provided `localhost` URL in Chrome or Safari.
+
+### Managing Local Data
+When using Local Mode, your data lives in your browser. To back it up or move it to another device:
+1.  Go to the **Data** tab in the bottom navigation.
+2.  Click **Export Data (JSON)** to download a backup file.
+3.  On the new device, use **Import Data (JSON)** to restore your backup.
+
 ## Data Structure
 
 The app expects the following columns in the spreadsheet (Row 1 headers):
