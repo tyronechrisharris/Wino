@@ -32,6 +32,7 @@ const app = createApp({
             setupStep: 'choice', // choice, create, list
             isUpgrading: false,
             isLocalMode: false,
+            toast: { show: false, message: '' },
             formData: {
                 name: '',
                 year: '',
@@ -301,17 +302,39 @@ const app = createApp({
                 if (data.status === 1) {
                     const product = data.product;
 
+                    // 1. Construct Name: "Brand + Product Name"
                     let name = product.product_name || '';
                     if (product.brands) {
                         name = `${product.brands} ${name}`;
                     }
-                    this.formData.name = name;
-                    this.formData.country = product.countries || '';
-                    this.formData.volume = product.quantity || '';
+                    this.formData.name = name.trim();
 
-                    alert(`Found: ${name}`);
+                    // 2. Map Country (Split if multiple, take first)
+                    // Open Food Facts returns comma separated list often
+                    let country = product.countries || product.origin || '';
+                    if (country.includes(',')) {
+                        country = country.split(',')[0].trim();
+                    }
+                    this.formData.country = country;
+
+                    // 3. Map Volume
+                    this.formData.volume = product.quantity || product.product_quantity || '';
+
+                    this.showToast(`Found: ${this.formData.name}`);
+
+                    // 4. Highlight Year Field & Prompt User
+                    this.$nextTick(() => {
+                        const yearInput = document.getElementById('wine-year-input');
+                        if (yearInput) {
+                            yearInput.focus();
+                            yearInput.classList.add('ring-4', 'ring-yellow-400'); // Visual highlight
+                            setTimeout(() => yearInput.classList.remove('ring-4', 'ring-yellow-400'), 3000);
+                        }
+                        this.showToast('Scan successful! Please enter the Vintage/Year.', 4000);
+                    });
+
                 } else {
-                    alert("Product not found in database.");
+                    this.showToast("Product not found in database.");
                 }
             } catch (error) {
                 console.error("Error fetching product:", error);
@@ -354,16 +377,16 @@ const app = createApp({
                         localStorage.setItem('local_settings', JSON.stringify(data.settings));
                         localStorage.setItem('local_wines', JSON.stringify(data.wines));
 
-                        alert('Data imported successfully!');
+                        this.showToast('Data imported successfully!');
                         await this.fetchSettings();
                         await this.fetchWines();
                         this.view = 'dashboard';
                     } else {
-                        alert('Invalid data format.');
+                        this.showToast('Invalid data format.');
                     }
                 } catch (error) {
                     console.error("Import error:", error);
-                    alert('Failed to parse file.');
+                    this.showToast('Failed to parse file.');
                 }
             };
             reader.readAsText(file);
@@ -657,6 +680,14 @@ const app = createApp({
                 this.error = "Could not upgrade spreadsheet. " + error.message;
                 this.loading = false;
              }
+        },
+
+        showToast(message, duration = 3000) {
+            this.toast.message = message;
+            this.toast.show = true;
+            setTimeout(() => {
+                this.toast.show = false;
+            }, duration);
         },
 
         async createCellar() {
