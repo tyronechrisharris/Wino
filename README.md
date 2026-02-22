@@ -1,130 +1,61 @@
 # Wine Cellar Manager PWA
 
-A serverless, client-side Progressive Web App (PWA) to manage your wine cellar using Google Sheets as the database.
+A serverless Progressive Web App (PWA) for managing your wine collection using Google Sheets as the database.
 
 ## Features
 
-*   **Google Integration**: Sign in with your Google account.
-*   **Zero Backend**: Uses your personal Google Sheet to store data.
-*   **PWA**: Installable on iOS and Android. Works offline (cached app shell).
-*   **Inventory Management**: Track bottles, prices, tasting notes, and scores.
-*   **Barcode Scanner**: Scan UPCs to auto-fill wine details using Open Food Facts.
-*   **Mobile First**: Designed for mobile use with a clean UI.
+- **Inventory View**: Browse your wine collection with search and filtering.
+- **Add Wine**: Scan barcodes (UPC) or wine labels (OCR) to quickly add new bottles.
+- **Google Sheets Integration**: Directly reads and writes to your personal Google Sheet.
+- **Offline Capability**: Works offline (read-only for existing data).
+- **Mobile First**: Optimized for mobile usage.
 
 ## Setup Instructions
 
-### 1. Create a Google Cloud Project
+### 1. Google Cloud Configuration
 
 1.  Go to the [Google Cloud Console](https://console.cloud.google.com/).
-2.  Create a new project (e.g., "Wine Cellar Manager").
-3.  **Enable APIs**:
-    *   Go to **APIs & Services > Library**.
-    *   Search for and enable **Google Sheets API**.
-    *   Search for and enable **Google Drive API**.
-
-### 2. Configure OAuth Consent Screen
-
-1.  Go to **APIs & Services > OAuth consent screen**.
-2.  Select **External** (unless you have a Google Workspace organization).
-3.  Fill in the app name, support email, and developer contact info.
-4.  **Scopes**: Add the following scopes:
-    *   `https://www.googleapis.com/auth/drive.file`
-    *   `https://www.googleapis.com/auth/spreadsheets`
-5.  **Test Users**: Add your own Google email address as a test user.
-
-### 3. Create Credentials
-
-1.  Go to **APIs & Services > Credentials**.
-2.  **Create API Key**:
-    *   Click **Create Credentials > API Key**.
-    *   Copy the key. You will need this for `config.js`.
-    *   (Recommended) Restrict the key to "Google Sheets API" and "Google Drive API" and your domain.
-3.  **Create OAuth Client ID**:
-    *   Click **Create Credentials > OAuth client ID**.
-    *   Application type: **Web application**.
-    *   Name: "Wine Cellar App".
-    *   **Authorized JavaScript origins**:
-        *   Add `http://localhost:8080` (for local testing).
-        *   Add your GitHub Pages URL (e.g., `https://<username>.github.io`).
-    *   Click **Create**.
+2.  Create a new project.
+3.  Enable **Google Sheets API** and **Google Drive API**.
+4.  Go to **APIs & Services > Credentials**.
+5.  Create an **OAuth 2.0 Client ID** (Web application).
+    *   Add your GitHub Pages URL (e.g., `https://yourusername.github.io`) to **Authorized JavaScript origins**.
+    *   Add your GitHub Pages URL (e.g., `https://yourusername.github.io`) to **Authorized redirect URIs**.
     *   Copy the **Client ID**.
+6.  Create an **API Key**.
+    *   Copy the **API Key**.
+    *   (Recommended) Restrict the API key to use only the Sheets and Drive APIs and restrict it to your GitHub Pages domain (Referrer).
 
-### 4. Security Configuration (Crucial)
+### 2. GitHub Configuration
 
-Since your API keys are visible in the code, you **must restrict them** to prevent unauthorized use.
+1.  **Fork** or **Clone** this repository.
+2.  Update `config.js` with your **Client ID** (this is safe to be public).
+3.  Go to your GitHub Repository **Settings > Secrets and variables > Actions**.
+4.  Click **New repository secret**.
+    *   Name: `GOOGLE_API_KEY`
+    *   Value: Paste your **API Key** from Google Cloud Console.
+    *   Click **Add secret**.
+5.  Push your changes to the `main` branch. This will trigger the GitHub Action to build and deploy your site.
 
-1.  Go to **APIs & Services > Credentials**.
-2.  Click the **Edit** (pencil) icon next to your **API Key**.
-3.  **Application restrictions**:
-    *   Select **HTTP referrers (websites)**.
-    *   Add your GitHub Pages URL: `https://<your-username>.github.io/*`
-    *   Add your local testing URL: `http://localhost:8080/*`
-    *   *Note: This ensures only your specific website can use this key.*
-4.  **API restrictions**:
-    *   Select **Restrict key**.
-    *   Select **Google Sheets API** and **Google Drive API** from the dropdown.
-    *   *Note: This limits the key's power so it can't be used for other Google services (like Maps or Translation).*
-5.  Click **Save**.
+### 3. GitHub Pages Setup
 
-### 5. Configure the App
-
-1.  Open `config.js` in the project root.
-2.  Replace `YOUR_CLIENT_ID_HERE` with your OAuth Client ID.
-3.  Replace `YOUR_API_KEY_HERE` with your API Key.
-
-### 6. Deployment
-
-1.  Push the code to a GitHub repository.
+1.  Wait for the "Deploy to GitHub Pages" action to complete (check the **Actions** tab).
 2.  Go to **Settings > Pages**.
-3.  Select the `main` branch as the source.
-4.  Your app will be live at `https://<username>.github.io/<repo-name>/`.
+3.  Under **Build and deployment > Source**, select **Deploy from a branch**.
+4.  Under **Branch**, select `gh-pages` and save.
+5.  Your site will be live at the displayed URL!
 
 ## Usage
 
-1.  Open the app.
-2.  Click **Sign in with Google**.
-3.  Grant permission to create files in your Drive.
-4.  The app will search for a spreadsheet named **"Wine Cellar Manager"**.
-    *   If it doesn't exist, it will create one with the correct columns.
-    *   If you have an existing one, rename it to "Wine Cellar Manager" or update the name in `config.js`.
+1.  Open the app on your mobile device.
+2.  Tap "Sign in with Google".
+3.  Grant permissions to access your Google Drive/Sheets.
+4.  Select an existing spreadsheet or create a new one.
+5.  Start scanning and managing your wine cellar!
 
-## Running Completely Offline (No Google)
+## Development
 
-You can run this app entirely on your device without using Google Sheets or signing in. Your data will be stored in your browser's local storage.
-
-### Local Installation on Android/iOS
-
-Since this is a client-side app, you can download the code and run it directly on your phone.
-
-**Method A: Simple File Access (Limited)**
-1.  Download the repository as a ZIP file.
-2.  Extract the ZIP to a folder on your phone.
-3.  Open `index.html` in your mobile browser.
-    *   *Note: Some features like the Service Worker (offline caching) and Camera access may be restricted by your browser when opening files directly.*
-
-**Method B: Local Web Server (Recommended)**
-For the best experience, use a simple web server app on your phone to serve the folder.
-1.  **Android**: Install an app like "Tiny Web Server" or "Simple HTTP Server".
-2.  **iOS**: Install an app like "Documents by Readdle" which has a built-in browser and file manager, or a dedicated server app.
-3.  Point the server app to the extracted `wine-cellar-pwa` folder.
-4.  Open the provided `localhost` URL in Chrome or Safari.
-
-### Managing Local Data
-When using Local Mode, your data lives in your browser. To back it up or move it to another device:
-1.  Go to the **Data** tab in the bottom navigation.
-2.  Click **Export Data (JSON)** to download a backup file.
-3.  On the new device, use **Import Data (JSON)** to restore your backup.
-
-## Data Structure
-
-The app expects the following columns in the spreadsheet (Row 1 headers):
-*   Item Name, Year, Country of Origin, Varietal, Volume
-*   Current Price, Original Price, Quantity, Bottles consumed, Bottles remaining, Total Price
-*   Wine Points, Source of Wine Points Ranking
-*   Lindy tasty notes, lindy delusional score
-*   Tyrone tasting notes, Tyrone perceived score
-*   Robot sommelier
-
-## License
-
-MIT
+To run locally:
+1.  Serve the directory using a simple HTTP server (e.g., `python3 -m http.server`).
+2.  You will need to temporarily put your API Key into `config.js` manually (do not commit it!).
+3.  Ensure `http://localhost:8000` (or your local port) is added to the Google Cloud Console "Authorized JavaScript origins".

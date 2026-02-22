@@ -1,0 +1,33 @@
+name: Deploy to GitHub Pages
+
+on:
+  push:
+    branches:
+      - main
+      - master
+
+permissions:
+  contents: write
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    concurrency:
+      group: ${{ github.workflow }}-${{ github.ref }}
+    steps:
+      - uses: actions/checkout@v3
+
+      - name: Inject Google API Key
+        env:
+          API_KEY: ${{ secrets.GOOGLE_API_KEY }}
+        run: |
+          # Use sed to replace the placeholder with the secret value
+          # Using | as delimiter to avoid issues with / in the key (though unlikely)
+          sed -i "s|GOOGLE_API_KEY_PLACEHOLDER|$API_KEY|g" config.js
+
+      - name: Deploy
+        uses: peaceiris/actions-gh-pages@v3
+        with:
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+          publish_dir: ./
+          publish_branch: gh-pages

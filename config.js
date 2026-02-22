@@ -7,10 +7,11 @@
 
 const CONFIG = {
     // Replace with your Client ID (e.g., "123456789-abc...apps.googleusercontent.com")
-    CLIENT_ID: 'YOUR_CLIENT_ID_HERE',
+    CLIENT_ID: '643913572222-8i90nnjuo7mb2f5k6tmrnepght96lnul.apps.googleusercontent.com',
 
-    // Replace with your API Key
-    API_KEY: 'YOUR_API_KEY_HERE',
+    // This value will be replaced by the GitHub Actions workflow at build time.
+    // If running locally, you must temporarily set your API Key here.
+    API_KEY: 'GOOGLE_API_KEY_PLACEHOLDER',
 
     // Authorization scopes required by the API; multiple scopes can be
     // included, separated by spaces.
