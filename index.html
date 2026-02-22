@@ -277,6 +277,15 @@
                             </label>
                         </div>
 
+                        <!-- OCR Debug Info -->
+                        <div v-if="ocrDebugLog" class="mb-4 bg-gray-100 p-2 rounded text-xs font-mono border border-gray-300">
+                            <div class="flex justify-between items-center mb-1">
+                                <span class="font-bold">Scan Debug Log:</span>
+                                <button @click="ocrDebugLog = ''" class="text-red-500">Clear</button>
+                            </div>
+                            <pre class="whitespace-pre-wrap max-h-40 overflow-y-auto">{{ ocrDebugLog }}</pre>
+                        </div>
+
                         <form @submit.prevent="submitWineForm" class="space-y-4 bg-white p-4 rounded shadow">
                             <!-- Basic Info -->
                             <div>
@@ -459,7 +468,7 @@
     </div>
 
     <!-- Configuration -->
-    <script src="config.js"></script>
+    <script src="config.js?v=2"></script>
 
     <!-- Vue.js -->
     <script src="https://unpkg.com/vue@3/dist/vue.global.js"></script>
@@ -471,10 +480,10 @@
     <script src="https://unpkg.com/html5-qrcode" type="text/javascript"></script>
 
     <!-- Tesseract.js -->
-    <script src='https://unpkg.com/tesseract.js@v2.1.0/dist/tesseract.min.js'></script>
+    <script src='https://cdn.jsdelivr.net/npm/tesseract.js@5/dist/tesseract.min.js'></script>
 
     <!-- App Logic -->
-    <script src="app.js"></script>
+    <script src="app.js?v=2"></script>
 
     <!-- Service Worker Registration -->
     <script>

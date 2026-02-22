@@ -256,6 +256,7 @@ const app = createApp({
             showInstallModal: false,
             isStandalone: false,
             toast: { show: false, message: '' },
+            ocrDebugLog: '',
             formData: {
                 name: '',
                 year: '',
@@ -578,61 +579,165 @@ const app = createApp({
             if (!file) return;
 
             this.loading = true;
-            this.loadingMessage = 'Scanning label with AI...';
+            this.loadingMessage = 'Enhancing image & scanning...';
+            this.ocrDebugLog = '';
 
             try {
+                // 1. Preprocess Image
+                const processedImage = await this.preprocessImage(file);
+
+                // 2. Run Tesseract
                 const { data: { text } } = await Tesseract.recognize(
-                    file,
+                    processedImage,
                     'eng',
-                    { logger: m => console.log(m) }
+                    {
+                        logger: m => {
+                            if (m.status === 'recognizing text') {
+                                this.loadingMessage = `Scanning... ${(m.progress * 100).toFixed(0)}%`;
+                            }
+                        }
+                    }
                 );
 
                 console.log("OCR Result:", text);
-                this.parseOCR(text);
+                this.ocrDebugLog = text; // Show raw text to user
+
+                // 3. Parse
+                const results = this.parseOCR(text);
+
+                if (results.found > 0) {
+                    this.showToast(`Found: ${results.summary}`);
+                } else {
+                    this.showToast("Scan complete. No details found.");
+                }
 
             } catch (err) {
                 console.error("OCR Error:", err);
+                this.ocrDebugLog = "Error: " + err.message;
                 this.showToast("Failed to scan label. Try again.");
             } finally {
                 this.loading = false;
             }
         },
 
+        preprocessImage(file) {
+            return new Promise((resolve, reject) => {
+                const img = new Image();
+                img.onload = () => {
+                    const canvas = document.createElement('canvas');
+                    const ctx = canvas.getContext('2d');
+
+                    // Resize to max 1500px width/height to speed up
+                    const MAX_DIM = 1500;
+                    let width = img.width;
+                    let height = img.height;
+
+                    if (width > height) {
+                        if (width > MAX_DIM) {
+                            height *= MAX_DIM / width;
+                            width = MAX_DIM;
+                        }
+                    } else {
+                        if (height > MAX_DIM) {
+                            width *= MAX_DIM / height;
+                            height = MAX_DIM;
+                        }
+                    }
+
+                    canvas.width = width;
+                    canvas.height = height;
+
+                    // Draw image
+                    ctx.drawImage(img, 0, 0, width, height);
+
+                    // Get image data
+                    const imageData = ctx.getImageData(0, 0, width, height);
+                    const data = imageData.data;
+
+                    // Grayscale & High Contrast
+                    for (let i = 0; i < data.length; i += 4) {
+                        const avg = (data[i] + data[i + 1] + data[i + 2]) / 3;
+                        // Simple binarization threshold
+                        // const color = avg > 128 ? 255 : 0;
+                        // Or just increase contrast
+                        let color = avg;
+                        // Contrast factor
+                        const factor = 1.5; // increase contrast
+                        color = factor * (color - 128) + 128;
+
+                        // Clamp
+                        color = Math.max(0, Math.min(255, color));
+
+                        data[i] = color;     // Red
+                        data[i + 1] = color; // Green
+                        data[i + 2] = color; // Blue
+                    }
+
+                    ctx.putImageData(imageData, 0, 0);
+
+                    // Return data URL
+                    resolve(canvas.toDataURL('image/jpeg'));
+                };
+                img.onerror = reject;
+                img.src = URL.createObjectURL(file);
+            });
+        },
+
         parseOCR(text) {
             const lowerText = text.toLowerCase();
+            const results = { found: 0, summary: [] };
 
             // 1. Year (Vintage)
+            // Look for year 1900-2099
+            // Often year is isolated or preceded by "Vintage"
             const yearMatch = text.match(/\b(19|20)\d{2}\b/);
             if (yearMatch) {
                 this.formData.year = parseInt(yearMatch[0]);
+                results.found++;
+                results.summary.push(yearMatch[0]);
             }
 
             // 2. Varietal
+            let foundVarietal = false;
             for (const varietal of varietalKeywords) {
                 if (lowerText.includes(varietal)) {
-                    // Title Case
                     this.formData.varietal = varietal.split(' ')
                         .map(w => w.charAt(0).toUpperCase() + w.slice(1))
                         .join(' ');
+                    foundVarietal = true;
                     break;
                 }
+            }
+            if (foundVarietal) {
+                results.found++;
+                results.summary.push(this.formData.varietal);
             }
 
             // 3. Country of Origin
+            let foundCountry = false;
             for (const [country, regions] of Object.entries(countryKeywords)) {
-                if (lowerText.includes(country) || regions.some(r => lowerText.includes(r))) {
-                    this.formData.country = country.charAt(0).toUpperCase() + country.slice(1);
+                if (lowerText.includes(country.toLowerCase()) || regions.some(r => lowerText.includes(r))) {
+                    this.formData.country = country; // Already Title Case in key
+                    foundCountry = true;
                     break;
                 }
             }
+            if (foundCountry) {
+                results.found++;
+                results.summary.push(this.formData.country);
+            }
 
-            // 4. Volume (Regex for common sizes)
+            // 4. Volume
             const volMatch = text.match(/\b\d{3}\s?ml\b/i) || text.match(/\b1\.5\s?l\b/i) || text.match(/\b750\b/);
             if (volMatch) {
                 this.formData.volume = volMatch[0];
+                results.found++;
+                results.summary.push(volMatch[0]);
             }
 
-            this.showToast("Label scanned! Please verify details.");
+            // Join summary
+            results.summary = results.summary.join(', ');
+            return results;
         },
 
         exportData() {
