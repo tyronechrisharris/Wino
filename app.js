@@ -8,26 +8,225 @@ const HEADERS = [
     "Tyrone perceived score", "Robot sommelier"
 ];
 
+// ==========================================
+// 1. COUNTRY & REGION KEYWORDS DICTIONARY
+// ==========================================
+const countryKeywords = {
+    // FRANCE
+    "France": [
+        "france", "bordeaux", "burgundy", "bourgogne", "champagne", "rhone", "loire", "alsace",
+        "languedoc", "roussillon", "provence", "beaujolais", "medoc", "saint-emilion", "pomerol",
+        "margaux", "pauillac", "sauternes", "chablis", "cotes du rhone", "chateauneuf-du-pape",
+        "sancerre", "pouilly-fume", "muscadet", "vouvrary", "chinon", "cahors", "bandol",
+        "minervois", "corbieres", "jura", "savoie", "corsica", "corse", "vins de pays"
+    ],
+
+    // ITALY
+    "Italy": [
+        "italy", "italia", "tuscany", "toscana", "piedmont", "piemonte", "veneto", "sicily", "sicilia",
+        "puglia", "apulia", "sardinia", "sardegna", "chianti", "brunello", "barolo", "barbaresco",
+        "amarone", "valpolicella", "soave", "prosecco", "asti", "langhe", "nebbiolo", "sangiovese",
+        "montepulciano", "abruzzo", "campania", "taurasi", "etna", "primitivo di manduria",
+        "salice salentino", "brindisi", "umbro", "umbria", "friuli", "trentino", "alto adige",
+        "lombardy", "lombardia", "franciacorta", "lambrusco", "emilia-romagna", "super tuscan"
+    ],
+
+    // UNITED STATES
+    "USA": [
+        "usa", "united states", "california", "napa", "sonoma", "paso robles", "central coast",
+        "willamette", "oregon", "washington", "columbia valley", "walla walla", "finger lakes",
+        "new york", "texas", "virginia", "santa barbara", "monterey", "mendocino", "russian river",
+        "alexander valley", "stags leap", "rutherford", "oakville", "carneros", "anderson valley",
+        "lodi", "santa cruz", "livermore", "temecula", "red mountain", "yakima", "dundee hills"
+    ],
+
+    // SPAIN
+    "Spain": [
+        "spain", "españa", "rioja", "ribera del duero", "priorat", "penedes", "cava", "rias baixas",
+        "rueda", "toro", "la mancha", "valdepeñas", "jumilla", "yecla", "navarra", "bierzo",
+        "somontano", "monsant", "jerez", "sherry", "andalucia", "galicia", "catalonia", "catalunya",
+        "castilla", "aragon", "valencia"
+    ],
+
+    // GERMANY
+    "Germany": [
+        "germany", "deutschland", "mosel", "rheingau", "pfalz", "rheinhessen", "nahe", "baden",
+        "franken", "ahr", "mittelrhein", "wurttemberg", "saale-unstrut", "saxony", "sachsen"
+    ],
+
+    // AUSTRIA
+    "Austria": [
+        "austria", "osterreich", "wachau", "kremstal", "kamptal", "traisental", "wagram", "weinviertel",
+        "carnuntum", "thermenregion", "burgenland", "neusiedlersee", "leithaberg", "eisenberg",
+        "mittelburgenland", "styria", "steiermark", "vulkanland", "sudsteiermark", "weststeiermark",
+        "vienna", "wien"
+    ],
+
+    // PORTUGAL
+    "Portugal": [
+        "portugal", "douro", "porto", "port", "alentejo", "dao", "bairrada", "vinho verde", "minho",
+        "setubal", "tejo", "lisboa", "madeira", "azores", "beira", "tras-os-montes", "algarve"
+    ],
+
+    // AUSTRALIA
+    "Australia": [
+        "australia", "barossa", "mclaren vale", "coonawarra", "clare valley", "hunter valley",
+        "margaret river", "yarra valley", "mornington peninsula", "adelaide hills", "eden valley",
+        "riverina", "tasmania", "victoria", "new south wales", "south australia", "western australia"
+    ],
+
+    // NEW ZEALAND
+    "New Zealand": [
+        "new zealand", "nz", "marlborough", "central otago", "hawke's bay", "hawkes bay", "martinborough",
+        "wairarapa", "gisborne", "waipara", "nelson", "auckland", "waiheke", "canterbury"
+    ],
+
+    // CHILE
+    "Chile": [
+        "chile", "maipo", "colchagua", "cachapoal", "rapel", "curico", "maule", "casablanca",
+        "leyda", "aconcagua", "limari", "elqui", "bio bio", "itata", "central valley"
+    ],
+
+    // ARGENTINA
+    "Argentina": [
+        "argentina", "mendoza", "uco valley", "lujan de cuyo", "maipu", "salta", "cafayate",
+        "patagonia", "rio negro", "neuquen", "san juan", "la rioja"
+    ],
+
+    // SOUTH AFRICA
+    "South Africa": [
+        "south africa", "stellenbosch", "paarl", "franschhoek", "swartland", "constantia",
+        "walker bay", "elgin", "robertson", "western cape", "coastal region", "breede river"
+    ],
+
+    // GEORGIA (The cradle of wine)
+    "Georgia": [
+        "georgia", "sakartvelo", "kakheti", "imereti", "kartli", "racha", "lechkhumi",
+        "telavi", "tsinandali", "mukuzani", "kindzmarauli", "khvanchkara", "napareuli",
+        "kvareli", "akhasheni", "qvevri"
+    ],
+
+    // ARMENIA
+    "Armenia": [
+        "armenia", "hayastan", "vayots dzor", "ararat", "armavir", "aragatsotn", "tavush"
+    ],
+
+    // HUNGARY
+    "Hungary": [
+        "hungary", "magyarorszag", "tokaj", "tokaji", "eger", "egri bikaver", "villany",
+        "szekszard", "balaton", "somlo", "sopron", "pannonhalma", "kunsag", "matra"
+    ],
+
+    // MOLDOVA
+    "Moldova": [
+        "moldova", "republica moldova", "valul lui traian", "stefan voda", "codru",
+        "cricova", "purcari", "milestii mici", "divin"
+    ],
+
+    // ROMANIA
+    "Romania": [
+        "romania", "dealu mare", "transylvania", "transilvania", "dobrogea", "cotnari",
+        "murfatlar", "dragasani", "tarnave", "banat", "crisana", "muntenia", "oltenia"
+    ],
+
+    // BULGARIA
+    "Bulgaria": [
+        "bulgaria", "thracian valley", "trakiyska nizina", "danubian plain", "dunavska ravnina",
+        "melnik", "struma valley", "black sea", "chernomorski rayon", "rose valley"
+    ],
+
+    // CROATIA
+    "Croatia": [
+        "croatia", "hrvatska", "istria", "istra", "dalmatia", "dalmacija", "slavonia",
+        "slavonija", "peljesac", "dingac", "postup", "hvar", "korcula", "kvarner"
+    ],
+
+    // SLOVENIA
+    "Slovenia": [
+        "slovenia", "slovenija", "primorska", "podravje", "posavje", "goriska brda",
+        "kras", "stajerska", "vipava", "istria"
+    ],
+
+    // GREECE
+    "Greece": [
+        "greece", "hellas", "santorini", "nemea", "naoussa", "macedonia", "peloponnese",
+        "crete", "kiti", "pangeon", "amyntaio", "attica", "mantinia", "patras", "cephallonia"
+    ],
+
+    // SERBIA & NORTH MACEDONIA
+    "Serbia": [
+        "serbia", "srbija", "sumadija", "fruska gora", "zupa", "palic", "negotin"
+    ],
+    "North Macedonia": [
+        "north macedonia", "macedonia", "tikves", "povardarie", "pelagonia"
+    ],
+
+    // LEBANON & TURKEY & ISRAEL
+    "Lebanon": [
+        "lebanon", "bekaa valley", "batroun", "mount lebanon", "jezouit"
+    ],
+    "Turkey": [
+        "turkey", "turkiye", "thrace", "aegean", "marmara", "anatolia", "cappadocia", "izmir"
+    ],
+    "Israel": [
+        "israel", "galilee", "golan heights", "judean hills", "negev", "shomron", "samaria"
+    ],
+
+    // OTHER NOTABLE REGIONS (Canada, Uruguay, Switzerland, etc.)
+    "Canada": [
+        "canada", "okanagan", "niagara", "british columbia", "ontario", "nova scotia"
+    ],
+    "Uruguay": [
+        "uruguay", "canelones", "maldonado", "montevideo"
+    ],
+    "Switzerland": [
+        "switzerland", "suisse", "valais", "vaud", "ticino", "geneva"
+    ],
+    "United Kingdom": [
+        "uk", "united kingdom", "england", "sussex", "kent", "hampshire"
+    ]
+};
+
+
+// ==========================================
+// 2. VARIETAL KEYWORDS DICTIONARY
+// ==========================================
 const varietalKeywords = [
+    // Standard & Popular Reds
     "cabernet sauvignon", "cabernet", "malbec", "merlot", "pinot noir",
     "zinfandel", "syrah", "shiraz", "petite sirah", "carmenere",
-    "bordeaux", "gamay", "rhone", "primitivo", "sangiovese",
-    "chianti", "bobal", "garnacha", "grenache", "monastrell",
-    "tempranillo", "rioja", "salice salentino", "brindisi",
-    "red blend", "toscana", "super tuscan", "chardonnay",
-    "sauvignon blanc", "pinot grigio", "riesling"
-];
+    "cabernet franc", "petit verdot", "grenache", "garnacha", "mourvedre",
+    "monastrell", "cinsault", "carignan", "sangiovese", "nebbiolo", "barbera",
+    "montepulciano", "nero d'avola", "aglianico", "primitivo", "tempranillo",
+    "touriga nacional", "tinta roriz", "mencia", "pinotage", "gamay", "zweigelt",
+    "blaufrankisch", "lemberger", "st. laurent", "dolcetto", "corvina",
 
-const countryKeywords = {
-    "argentina": ["argentina", "mendoza", "patagonia"],
-    "australia": ["australia", "barossa", "mclaren"],
-    "chile": ["chile", "maipo", "colchagua"],
-    "france": ["france", "bordeaux", "rhone", "beaujolais", "burgundy"],
-    "italy": ["italy", "italia", "toscana", "tuscany", "puglia", "chianti"],
-    "portugal": ["portugal", "douro"],
-    "spain": ["spain", "españa", "rioja", "jumilla", "toro"],
-    "usa": ["usa", "united states", "california", "paso robles", "napa", "sonoma", "lodi", "willamette"]
-};
+    // Standard & Popular Whites
+    "chardonnay", "sauvignon blanc", "pinot grigio", "pinot gris", "riesling",
+    "chenin blanc", "viognier", "gewurztraminer", "gruner veltliner", "albarino",
+    "alvarinho", "torrontes", "vermentino", "garganega", "cortese", "trebbiano",
+    "macabeo", "viura", "verdejo", "semillon", "muscadet", "melon de bourgogne",
+    "colombard", "marsanne", "roussanne", "picpoul", "muscat", "moscato", "pinot blanc",
+
+    // Blends & Styles
+    "red blend", "white blend", "bordeaux blend", "bordeaux", "gsm", "rhone blend",
+    "chianti", "super tuscan", "rioja", "cava", "champagne", "prosecco", "port",
+    "sherry", "madeira", "rose", "rosé", "blanc de blancs", "blanc de noirs",
+    "meritage", "claret", "amarone", "valpolicella", "chablis", "sauternes",
+
+    // Eastern European, Caucasus & Ancient Mediterranean
+    "saperavi", "rkatsiteli", "mtsvane", "kisi", "tsitska", "krakhuna", "alexandrouli", // Georgia
+    "areni", "voskehat", // Armenia
+    "furmint", "harslevelu", "kekfrankos", "kadarka", "bikaver", // Hungary
+    "feteasca neagra", "feteasca alba", "feteasca regala", "babeasca neagra", // Romania / Moldova
+    "mavrud", "rubin", "broad leaved melnik", "pamid", // Bulgaria
+    "plavac mali", "malvazija", "grasevina", "teran", "posip", // Croatia / Slovenia
+    "vranec", "vranac", "prokupac", "tamjanika", // North Macedonia / Serbia
+    "assyrtiko", "xinomavro", "agiorgitiko", "moschofilero", "malagousia", "roditis", // Greece
+    "bogazkere", "okuzgozu", "narince", "emir", "kalecik karasi", // Turkey
+    "tannat", // Uruguay (adopted) / France
+    "vidal", "baco noir", "maréchal foch" // Hybrids / Canada
+];
 
 const app = createApp({
     data() {
