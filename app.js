@@ -654,28 +654,68 @@ const app = createApp({
 
             // Determine Draw Area (Full or Cropped)
             if (this.focusArea) {
-                // Crop logic
-                canvas.width = this.focusArea.width;
-                canvas.height = this.focusArea.height;
+                // UPSCALING for better OCR
+                const scale = 2.0;
+
+                // Set canvas size to scaled dimensions
+                canvas.width = this.focusArea.width * scale;
+                canvas.height = this.focusArea.height * scale;
 
                 // Safety check for bounds
                 let sx = Math.max(0, this.focusArea.x);
                 let sy = Math.max(0, this.focusArea.y);
-                // Ensure we don't read outside video
-                if (sx + canvas.width > video.videoWidth) sx = video.videoWidth - canvas.width;
-                if (sy + canvas.height > video.videoHeight) sy = video.videoHeight - canvas.height;
 
-                // Simple contrast/grayscale filter via canvas (faster than pixel loop)
-                ctx.filter = 'grayscale(1) contrast(1.2) brightness(1.1)';
-                ctx.drawImage(video, sx, sy, canvas.width, canvas.height, 0, 0, canvas.width, canvas.height);
-                ctx.filter = 'none';
+                // Ensure we don't read outside video
+                // Note: sx/sy are in video source coordinates (unscaled)
+                let sw = this.focusArea.width;
+                let sh = this.focusArea.height;
+
+                if (sx + sw > video.videoWidth) sx = video.videoWidth - sw;
+                if (sy + sh > video.videoHeight) sy = video.videoHeight - sh;
+
+                // Draw scaled up image
+                ctx.drawImage(video, sx, sy, sw, sh, 0, 0, canvas.width, canvas.height);
+
+                // BINARIZATION (Thresholding)
+                // Get image data to manipulate pixels directly
+                const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
+                const data = imageData.data;
+
+                // Calculate average brightness first (optional, but good for adaptive threshold)
+                // Or just use fixed high contrast logic
+                // Simple Otsu-like approximation:
+                // Convert to grayscale and increase contrast
+                for (let i = 0; i < data.length; i += 4) {
+                    // Grayscale (luminance)
+                    const gray = 0.299 * data[i] + 0.587 * data[i + 1] + 0.114 * data[i + 2];
+
+                    // Thresholding
+                    // If lighter than 100, make white. Else black.
+                    // Wine labels often have dark backgrounds with light text OR light background with dark text.
+                    // Tesseract prefers black text on white background.
+
+                    // Attempt to normalize:
+                    // If the image is mostly dark, we might need to invert?
+                    // For now, let's just do standard binarization.
+
+                    const threshold = 110;
+                    const val = gray > threshold ? 255 : 0;
+
+                    data[i] = val;     // R
+                    data[i + 1] = val; // G
+                    data[i + 2] = val; // B
+                }
+                ctx.putImageData(imageData, 0, 0);
+
             } else {
-                // Full sweep
-                canvas.width = video.videoWidth;
-                canvas.height = video.videoHeight;
+                // Full sweep - keep low res for performance
+                // Downscale if video is 1080p to speed up sweep
+                const scale = 0.5;
+                canvas.width = video.videoWidth * scale;
+                canvas.height = video.videoHeight * scale;
 
                 // Simple filter
-                ctx.filter = 'grayscale(1) contrast(1.1)';
+                ctx.filter = 'grayscale(1) contrast(1.2)';
                 ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
                 ctx.filter = 'none';
             }
@@ -683,6 +723,12 @@ const app = createApp({
             // Extract text
             const dataUrl = canvas.toDataURL('image/jpeg');
             try {
+                // Configure Tesseract for single block of text if focused
+                // PSM 7 = Treat the image as a single text line.
+                // PSM 6 = Assume a single uniform block of text.
+                // We can't change worker params easily per frame without re-initializing,
+                // so we rely on image processing.
+
                 const { data: { text } } = await this.ocrWorker.recognize(dataUrl);
                 const cleanedText = text.replace(/\n/g, ' ').trim();
 
@@ -726,9 +772,17 @@ const app = createApp({
              // Validation based on target
              if (this.scanTarget === 'year') {
                  // Strict year validation
-                 const yearMatch = clean.match(/\b(19|20)\d{2}\b/);
+                 // Must be between 1800 and Current Year + 2
+                 const yearMatch = clean.match(/\b(18|19|20)\d{2}\b/);
+
                  if (yearMatch) {
-                     clean = yearMatch[0];
+                     const year = parseInt(yearMatch[0]);
+                     const currentYear = new Date().getFullYear();
+                     if (year > 1800 && year <= currentYear + 2) {
+                        clean = yearMatch[0];
+                     } else {
+                         return; // Year out of range
+                     }
                  } else {
                      return; // Not a valid year
                  }
@@ -875,8 +929,14 @@ const app = createApp({
             const result = {};
 
             // 1. Year
-            const yearMatch = text.match(/\b(19|20)\d{2}\b/);
-            if (yearMatch) result.year = parseInt(yearMatch[0]);
+            const yearMatch = text.match(/\b(18|19|20)\d{2}\b/);
+            if (yearMatch) {
+                const y = parseInt(yearMatch[0]);
+                const currentYear = new Date().getFullYear();
+                if (y > 1800 && y <= currentYear + 2) {
+                    result.year = y;
+                }
+            }
 
             // 2. Varietal
             for (const varietal of varietalKeywords) {

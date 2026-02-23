@@ -493,7 +493,12 @@
             <button class="scan-close" @click="stopLabelScanner(true)">
                 Stop / Manual Entry
             </button>
-            <canvas id="ocr-canvas" class="hidden"></canvas>
+
+            <!-- Debug Canvas View -->
+            <div class="absolute bottom-24 right-4 bg-black border border-white z-50">
+                 <p class="text-[10px] text-white bg-black px-1">AI Vision:</p>
+                 <canvas id="ocr-canvas" class="w-32 h-auto"></canvas>
+            </div>
         </div>
 
         <nav v-if="(accessToken && spreadsheetId) || isLocalMode" class="bg-white border-t border-gray-200 fixed bottom-0 w-full z-40 pb-safe">
