@@ -602,8 +602,24 @@ const app = createApp({
 
                 // Access Camera
                 const stream = await navigator.mediaDevices.getUserMedia({
-                    video: { facingMode: "environment" }
+                    video: {
+                        facingMode: "environment",
+                        width: { ideal: 1920 },
+                        height: { ideal: 1080 }
+                    }
                 });
+
+                // Try to set focus mode if supported
+                const track = stream.getVideoTracks()[0];
+                const capabilities = track.getCapabilities ? track.getCapabilities() : {};
+                if (capabilities.focusMode && capabilities.focusMode.includes('continuous')) {
+                    try {
+                        await track.applyConstraints({ advanced: [{ focusMode: 'continuous' }] });
+                    } catch(e) {
+                         console.log("Could not set focus mode", e);
+                    }
+                }
+
                 this.ocrStream = stream;
 
                 this.$nextTick(() => {
@@ -634,7 +650,7 @@ const app = createApp({
 
             this.isRecognizing = true;
 
-            const ctx = canvas.getContext('2d');
+            const ctx = canvas.getContext('2d', { willReadFrequently: true });
 
             // Determine Draw Area (Full or Cropped)
             if (this.focusArea) {
@@ -649,28 +665,20 @@ const app = createApp({
                 if (sx + canvas.width > video.videoWidth) sx = video.videoWidth - canvas.width;
                 if (sy + canvas.height > video.videoHeight) sy = video.videoHeight - canvas.height;
 
+                // Simple contrast/grayscale filter via canvas (faster than pixel loop)
+                ctx.filter = 'grayscale(1) contrast(1.2) brightness(1.1)';
                 ctx.drawImage(video, sx, sy, canvas.width, canvas.height, 0, 0, canvas.width, canvas.height);
+                ctx.filter = 'none';
             } else {
                 // Full sweep
                 canvas.width = video.videoWidth;
                 canvas.height = video.videoHeight;
-                ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
-            }
 
-            // Preprocess (Grayscale & Contrast)
-            const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
-            const data = imageData.data;
-            for (let i = 0; i < data.length; i += 4) {
-                const avg = (data[i] + data[i + 1] + data[i + 2]) / 3;
-                let color = avg;
-                const factor = 1.5; // Contrast
-                color = factor * (color - 128) + 128;
-                color = Math.max(0, Math.min(255, color));
-                data[i] = color;
-                data[i + 1] = color;
-                data[i + 2] = color;
+                // Simple filter
+                ctx.filter = 'grayscale(1) contrast(1.1)';
+                ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+                ctx.filter = 'none';
             }
-            ctx.putImageData(imageData, 0, 0);
 
             // Extract text
             const dataUrl = canvas.toDataURL('image/jpeg');
@@ -692,7 +700,7 @@ const app = createApp({
                 }
 
                 // Debug Log
-                this.ocrDebugLog = `Last Scan (${this.focusArea ? 'Focused' : 'Sweep'}):\n${cleanedText.substring(0, 100)}...`;
+                this.ocrDebugLog = `Last Scan (${this.focusArea ? 'Focused' : 'Sweep'}):\nRAW: ${text.substring(0, 50)}...\nCLEAN: ${cleanedText.substring(0, 50)}...`;
 
                 // Check Exit (only if sweeping or automated)
                 if (!this.focusArea && this.scannedData.year && this.scannedData.country && this.scannedData.varietal) {
@@ -808,7 +816,7 @@ const app = createApp({
             // Define Crop Box (250x80 on screen -> scaled to source)
             // But user said "width: 250px; height: 80px" on screen.
             const screenW = 250;
-            const screenH = 80;
+            const screenH = 120;
 
             const sourceW = screenW / scale;
             const sourceH = screenH / scale;
