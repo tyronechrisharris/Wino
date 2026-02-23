@@ -31,9 +31,8 @@
                         <i class="fas fa-download"></i> Install
                     </button>
                     <div v-if="user" class="flex items-center gap-2">
-                        <img :src="user.picture" class="w-8 h-8 rounded-full border-2 border-white" alt="Profile">
                         <button @click="handleSignout" class="text-sm bg-red-800 px-3 py-1 rounded hover:bg-red-700">
-                            {{ isLocalMode ? 'Exit Local' : 'Sign Out' }}
+                            Reset App
                         </button>
                     </div>
                 </div>
@@ -51,26 +50,7 @@
 
             <!-- Views will be injected here by Vue -->
             <div v-else>
-                <div v-if="!accessToken && !isLocalMode">
-                    <!-- Login View Placeholder -->
-                    <div class="text-center py-20">
-                        <h2 class="text-2xl font-bold mb-4">Welcome to Your Wine Cellar</h2>
-                        <p class="mb-8 text-gray-600">Manage your collection using your own Google Sheet.</p>
-                        <button @click="handleAuthClick" class="bg-white text-gray-700 font-semibold py-2 px-4 border border-gray-300 rounded shadow hover:bg-gray-50 transition flex items-center justify-center gap-2 mx-auto">
-                            <img src="https://www.svgrepo.com/show/475656/google-color.svg" class="w-6 h-6" alt="Google Logo">
-                            Sign in with Google
-                        </button>
-
-                        <div class="mt-6 border-t border-gray-200 pt-6">
-                            <p class="mb-4 text-sm text-gray-500">Or use offline without Google:</p>
-                            <button @click="startLocalMode" class="bg-gray-800 text-white font-semibold py-2 px-4 rounded shadow hover:bg-gray-700 transition flex items-center justify-center gap-2 mx-auto">
-                                <i class="fas fa-hdd"></i> Use Local Mode
-                            </button>
-                        </div>
-                    </div>
-                </div>
-
-                <div v-else>
+                <div>
                     <!-- Setup View -->
                     <div v-if="view === 'setup'" class="max-w-md mx-auto bg-white p-6 rounded shadow">
                         <h2 class="text-2xl font-bold mb-4 text-center">Setup Your Cellar</h2>
@@ -156,8 +136,8 @@
                                 <p class="text-xs text-gray-400 mt-1">This will overwrite your current local data.</p>
                             </div>
 
-                            <button @click="handleSignout" class="w-full bg-gray-200 text-gray-700 py-3 rounded mt-6">
-                                Return to Login
+                            <button @click="handleSignout" class="w-full bg-red-100 text-red-700 py-3 rounded mt-6 font-bold">
+                                Reset App Data
                             </button>
                         </div>
                     </div>

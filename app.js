@@ -251,7 +251,7 @@ const app = createApp({
             spreadsheetsList: [],
             setupStep: 'choice', // choice, create, list
             isUpgrading: false,
-            isLocalMode: false,
+            isLocalMode: true,
             deferredPrompt: null,
             showInstallModal: false,
             isStandalone: false,
@@ -1067,27 +1067,12 @@ const app = createApp({
             }
         },
         handleSignout() {
-            if (this.isLocalMode) {
-                this.isLocalMode = false;
-                this.user = null;
-                this.wines = [];
-                this.view = 'dashboard';
-                return;
+            if (confirm("Are you sure you want to reset the app? This will clear all local data.")) {
+                localStorage.removeItem('local_wines');
+                localStorage.removeItem('local_settings');
+                localStorage.removeItem('wine_spreadsheet_id');
+                window.location.reload();
             }
-
-            const token = this.accessToken;
-            if (token) {
-                google.accounts.oauth2.revoke(token, () => {
-                    console.log('Token revoked');
-                });
-            }
-            this.accessToken = null;
-            this.user = null;
-            this.wines = [];
-            this.spreadsheetId = null;
-            localStorage.removeItem('google_access_token');
-            localStorage.removeItem('google_token_expiry');
-            localStorage.removeItem('wine_spreadsheet_id');
         },
         startLocalMode() {
              this.isLocalMode = true;
@@ -1527,13 +1512,8 @@ const app = createApp({
             this.deferredPrompt = e;
         });
 
-        // Wait for GIS to load
-        const checkGoogle = setInterval(() => {
-            if (typeof google !== 'undefined' && google.accounts) {
-                clearInterval(checkGoogle);
-                this.initGIS();
-            }
-        }, 100);
+        // Immediately start local mode
+        this.startLocalMode();
     }
 });
 
