@@ -466,8 +466,12 @@
                 <button @click="setScanTarget('varietal')" :class="{'active': scanTarget === 'varietal'}" class="scan-btn">Varietal</button>
             </div>
 
-            <div class="scan-data-display" v-if="!focusArea">
-                <h3 class="font-bold mb-2">Sweeping...</h3>
+            <div class="scan-data-display">
+                <h3 class="font-bold mb-2">{{ focusArea ? 'Focused Scan...' : 'Sweeping...' }}</h3>
+                <div class="flex justify-between text-sm mb-1">
+                    <span>Name:</span>
+                    <span :class="scannedData.name ? 'text-green-400 font-bold' : 'text-gray-400'" class="truncate max-w-[150px] text-right block">{{ scannedData.name || 'Scanning...' }}</span>
+                </div>
                 <div class="flex justify-between text-sm mb-1">
                     <span>Year:</span>
                     <span :class="scannedData.year ? 'text-green-400 font-bold' : 'text-gray-400'">{{ scannedData.year || 'Scanning...' }}</span>

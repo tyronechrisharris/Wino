@@ -258,7 +258,7 @@ const app = createApp({
             toast: { show: false, message: '' },
             ocrDebugLog: '',
             scanningLabel: false,
-            scannedData: { year: null, country: null, varietal: null },
+            scannedData: { name: null, year: null, country: null, varietal: null },
             ocrWorker: null,
             ocrStream: null,
             ocrInterval: null,
@@ -586,7 +586,7 @@ const app = createApp({
 
         async startLabelScanner() {
             this.scanningLabel = true;
-            this.scannedData = { year: null, country: null, varietal: null };
+            this.scannedData = { name: null, year: null, country: null, varietal: null };
             this.ocrDebugLog = '';
             this.scanTarget = 'all';
             this.clearFocus();
@@ -708,9 +708,23 @@ const app = createApp({
         },
 
         assignFocusedText(text) {
-             // Basic cleanup
-             const clean = text.replace(/[^a-zA-Z0-9\s\.\-\']/g, '').replace(/\s+/g, ' ').trim();
-             if (!clean) return;
+             let clean = text.replace(/\s+/g, ' ').trim();
+             // Extended regex for names/countries/varietals (allow accents)
+             // \u00C0-\u00FF covers standard Latin-1 Supplement (Western European accents)
+             clean = clean.replace(/[^a-zA-Z0-9\s\.\-\'\u00C0-\u00FF]/g, '');
+
+             if (!clean || clean.length < 2) return;
+
+             // Validation based on target
+             if (this.scanTarget === 'year') {
+                 // Strict year validation
+                 const yearMatch = clean.match(/\b(19|20)\d{2}\b/);
+                 if (yearMatch) {
+                     clean = yearMatch[0];
+                 } else {
+                     return; // Not a valid year
+                 }
+             }
 
              // Map target to formData field
              const map = {
@@ -722,14 +736,20 @@ const app = createApp({
 
              const field = map[this.scanTarget];
              if (field) {
-                 this.formData[field] = clean;
+                 // Only update if value changed to avoid spamming
+                 const currentValue = this.formData[field];
+                 if (currentValue !== clean) {
+                    this.formData[field] = clean;
 
-                 // Feedback
-                 if (navigator.vibrate) navigator.vibrate(50);
-                 this.showToast(`Captured ${this.scanTarget}: ${clean}`, 1000);
+                    // Update overlay display too!
+                    if (this.scannedData.hasOwnProperty(field)) {
+                        this.scannedData[field] = clean;
+                    }
 
-                 // Optional: Auto-clear focus after capture?
-                 // User might want to try again if bad capture, so keep focus.
+                    // Feedback
+                    if (navigator.vibrate) navigator.vibrate(50);
+                    this.showToast(`Captured ${this.scanTarget}: ${clean}`, 1000);
+                 }
              }
         },
 
@@ -832,6 +852,7 @@ const app = createApp({
             this.ocrInterval = null;
 
             // Populate Form
+            if (this.scannedData.name) this.formData.name = this.scannedData.name;
             if (this.scannedData.year) this.formData.year = this.scannedData.year;
             if (this.scannedData.country) this.formData.country = this.scannedData.country;
             if (this.scannedData.varietal) this.formData.varietal = this.scannedData.varietal;
