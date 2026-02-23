@@ -5,7 +5,7 @@ const HEADERS = [
     "Current Price", "Original Price", "Quantity", "Bottles consumed",
     "Bottles remaining", "Total Price", "Wine Points", "Source of Wine Points Ranking",
     "Lindy tasty notes", "lindy delusional score", "Tyrone tasting notes",
-    "Tyrone perceived score", "Robot sommelier"
+    "Tyrone perceived score", "Robot sommelier", "Barcode"
 ];
 
 // ==========================================
@@ -284,7 +284,8 @@ const app = createApp({
                 lindyScore: '',
                 tyroneNotes: '',
                 tyroneScore: '',
-                robotNotes: ''
+                robotNotes: '',
+                barcode: ''
             }
         };
     },
@@ -342,7 +343,8 @@ const app = createApp({
                 lindyScore: '',
                 tyroneNotes: '',
                 tyroneScore: '',
-                robotNotes: ''
+                robotNotes: '',
+                barcode: ''
             };
         },
         updateRemaining() {
@@ -482,7 +484,8 @@ const app = createApp({
                 wine.lindyScore,
                 wine.tyroneNotes,
                 wine.tyroneScore,
-                wine.robotNotes
+                wine.robotNotes,
+                wine.barcode
             ];
         },
         startScanner() {
@@ -505,7 +508,27 @@ const app = createApp({
         onScanSuccess(decodedText, decodedResult) {
             console.log(`Scan result: ${decodedText}`, decodedResult);
             this.stopScanner();
-            this.fetchProductInfo(decodedText);
+
+            // Search local inventory first
+            const match = this.wines.find(w => w.barcode === decodedText);
+
+            if (match) {
+                // Match Found: Populate form for editing
+                this.selectedWine = match;
+                this.formData = { ...match };
+                this.showToast("Wine found! Loaded details.");
+                this.view = 'add'; // Ensure we are in Add/Edit view
+            } else {
+                // No Match: New Wine Entry -> Switch to OCR
+                this.resetForm();
+                this.formData.barcode = decodedText;
+                this.showToast("Unknown Barcode. Please scan the label.", 4000);
+
+                // Switch to Label Scanner automatically
+                setTimeout(() => {
+                    this.startLabelScanner();
+                }, 500);
+            }
         },
 
         stopScanner() {
@@ -521,59 +544,6 @@ const app = createApp({
             } else {
                  const container = document.getElementById('scanner-container');
                  if (container) container.classList.add('hidden');
-            }
-        },
-
-        async fetchProductInfo(barcode) {
-            this.loading = true;
-            this.loadingMessage = 'Looking up wine...';
-
-            try {
-                const response = await fetch(`https://world.openfoodfacts.org/api/v0/product/${barcode}.json`);
-                const data = await response.json();
-
-                if (data.status === 1) {
-                    const product = data.product;
-
-                    // 1. Construct Name: "Brand + Product Name"
-                    let name = product.product_name || '';
-                    if (product.brands) {
-                        name = `${product.brands} ${name}`;
-                    }
-                    this.formData.name = name.trim();
-
-                    // 2. Map Country (Split if multiple, take first)
-                    // Open Food Facts returns comma separated list often
-                    let country = product.countries || product.origin || '';
-                    if (country.includes(',')) {
-                        country = country.split(',')[0].trim();
-                    }
-                    this.formData.country = country;
-
-                    // 3. Map Volume
-                    this.formData.volume = product.quantity || product.product_quantity || '';
-
-                    this.showToast(`Found: ${this.formData.name}`);
-
-                    // 4. Highlight Year Field & Prompt User
-                    this.$nextTick(() => {
-                        const yearInput = document.getElementById('wine-year-input');
-                        if (yearInput) {
-                            yearInput.focus();
-                            yearInput.classList.add('ring-4', 'ring-yellow-400'); // Visual highlight
-                            setTimeout(() => yearInput.classList.remove('ring-4', 'ring-yellow-400'), 3000);
-                        }
-                        this.showToast('Scan successful! Please enter the Vintage/Year.', 4000);
-                    });
-
-                } else {
-                    this.showToast("Product not found in database.");
-                }
-            } catch (error) {
-                console.error("Error fetching product:", error);
-                this.error = "Could not look up product.";
-            } finally {
-                this.loading = false;
             }
         },
 
@@ -1540,7 +1510,8 @@ const app = createApp({
                 lindyScore: safeRow[14],
                 tyroneNotes: safeRow[15],
                 tyroneScore: safeRow[16],
-                robotNotes: safeRow[17]
+                robotNotes: safeRow[17],
+                barcode: safeRow[18]
             };
         }
     },
