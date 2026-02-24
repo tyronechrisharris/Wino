@@ -646,30 +646,22 @@ const app = createApp({
                 // Draw scaled up image
                 ctx.drawImage(video, sx, sy, sw, sh, 0, 0, canvas.width, canvas.height);
 
-                // BINARIZATION (Thresholding)
-                // Get image data to manipulate pixels directly
+                // Contrast Enhancement (Replaces Hard Thresholding)
+                // We avoid hard binarization (thresholding) because it destroys details in uneven lighting.
+                // Instead, we convert to grayscale and apply a contrast boost.
                 const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
                 const data = imageData.data;
 
-                // Calculate average brightness first (optional, but good for adaptive threshold)
-                // Or just use fixed high contrast logic
-                // Simple Otsu-like approximation:
-                // Convert to grayscale and increase contrast
                 for (let i = 0; i < data.length; i += 4) {
                     // Grayscale (luminance)
                     const gray = 0.299 * data[i] + 0.587 * data[i + 1] + 0.114 * data[i + 2];
 
-                    // Thresholding
-                    // If lighter than 100, make white. Else black.
-                    // Wine labels often have dark backgrounds with light text OR light background with dark text.
-                    // Tesseract prefers black text on white background.
+                    // Contrast Boost (1.2x)
+                    // Formula: new = factor * (old - 128) + 128
+                    let val = 1.2 * (gray - 128) + 128;
 
-                    // Attempt to normalize:
-                    // If the image is mostly dark, we might need to invert?
-                    // For now, let's just do standard binarization.
-
-                    const threshold = 110;
-                    const val = gray > threshold ? 255 : 0;
+                    // Clamp to 0-255
+                    val = Math.max(0, Math.min(255, val));
 
                     data[i] = val;     // R
                     data[i + 1] = val; // G
